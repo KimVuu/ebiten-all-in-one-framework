@@ -5,9 +5,11 @@
 ## 현재 상태
 
 - 설계 문서와 작업 규칙을 먼저 고정했다.
-- 첫 번째 Go 라이브러리로 `libs/go/ui-dom` 선언형 UI DOM 라이브러리를 추가했고, 입력/레이아웃/오버레이/상태 컴포넌트와 게임 UI 프리셋을 확장했다.
+- 현재 Go 라이브러리는 `libs/go/ui-dom`, `libs/go/ebitendebug`, `libs/go/ebiten-mcp`까지 정리되어 있다.
+- `ui-dom`은 선언형 UI DOM, 입력 런타임, 제약 레이아웃, 디버그 오버레이와 게임 UI 프리셋까지 확장된 상태다.
 - 모노레포의 최상위 인터페이스는 `libs`, `examples`, `projects`, `tools`, `scripts`, `docs` 여섯 가지로 제한한다.
 - `AGENTS.md`는 에이전트 작업 허브이고, 상세 규칙은 `docs/agents/*`에서 관리한다.
+- `tools/ebiten-mcp-server`와 `scripts/*`는 현재 라이브러리와 예제를 실행하고 검증하는 실제 엔트리로 사용한다.
 
 ## 디렉터리 기준
 
