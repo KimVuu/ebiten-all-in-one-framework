@@ -192,3 +192,70 @@ func TestSDKServerListsAndCallsToolsOverInMemoryTransport(t *testing.T) {
 		t.Fatalf("expected resolved target in sdk result, got %s", string(encoded))
 	}
 }
+
+func TestStreamableHTTPHandlerServesTools(t *testing.T) {
+	bridge := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		switch request.URL.Path {
+		case "/health":
+			_, _ = writer.Write([]byte(`{"gameId":"debug-bridge","version":"v1","connected":true}`))
+		case "/debug/commands/ui_click":
+			_, _ = writer.Write([]byte(`{"success":true,"status":"queued","resolvedTarget":"start-button","queuedFrame":42}`))
+		default:
+			http.NotFound(writer, request)
+		}
+	}))
+	defer bridge.Close()
+
+	server := New(NewBridgeClient(bridge.URL))
+	handler := server.StreamableHTTPHandler(&mcp.StreamableHTTPOptions{
+		JSONResponse:               true,
+		DisableLocalhostProtection: true,
+	})
+	httpServer := httptest.NewServer(handler)
+	defer httpServer.Close()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1.0.0"}, nil)
+	session, err := client.Connect(context.Background(), &mcp.StreamableClientTransport{
+		Endpoint: httpServer.URL,
+	}, nil)
+	if err != nil {
+		t.Fatalf("client connect failed: %v", err)
+	}
+	defer session.Close()
+
+	tools, err := session.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools failed: %v", err)
+	}
+	if len(tools.Tools) == 0 {
+		t.Fatalf("expected tools from streamable http server")
+	}
+
+	health, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "game_health"})
+	if err != nil {
+		t.Fatalf("game_health call failed: %v", err)
+	}
+	healthJSON, err := json.Marshal(health)
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+	if !bytes.Contains(healthJSON, []byte(`"gameId":"debug-bridge"`)) {
+		t.Fatalf("expected game health payload, got %s", string(healthJSON))
+	}
+
+	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "run_command",
+		Arguments: map[string]any{"name": "ui_click", "args": map[string]any{"node_id": "start-button"}},
+	})
+	if err != nil {
+		t.Fatalf("run_command call failed: %v", err)
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+	if !bytes.Contains(encoded, []byte(`"resolvedTarget":"start-button"`)) {
+		t.Fatalf("expected resolved target in streamable result, got %s", string(encoded))
+	}
+}

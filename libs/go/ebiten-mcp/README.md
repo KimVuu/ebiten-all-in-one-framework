@@ -4,6 +4,11 @@
 
 내부 서버 구현은 `github.com/modelcontextprotocol/go-sdk/mcp`를 사용한다. tool 이름과 bridge surface는 유지하고, stdio transport와 tool registration만 공식 SDK 위로 올렸다.
 
+지금은 두 transport를 지원한다.
+
+- `ServeStdio(...)`: 로컬 MCP host용 stdio 서버
+- `StreamableHTTPHandler(...)`: HTTP MCP client용 streamable HTTP handler
+
 ## 제공 툴
 
 - `game_health`
@@ -25,6 +30,7 @@
 - 게임 앱은 `libs/go/ebitendebug`로 디버그 브리지를 연다.
 - MCP 호스트와 연결할 때 이 라이브러리를 tool runner가 소비한다.
 - stdio 연결은 `go-sdk`의 `mcp.Server`와 `mcp.IOTransport`로 처리한다.
+- HTTP 연결은 `go-sdk`의 `mcp.NewStreamableHTTPHandler(...)`를 사용한다.
 - 실제 실행 엔트리는 `tools/ebiten-mcp-server`에 둔다.
 
 ## 검증

@@ -109,6 +109,16 @@ func (server *Server) serveStdio(ctx context.Context, input io.Reader, output io
 	return server.ServeStdio(ctx, input, output)
 }
 
+func (server *Server) StreamableHTTPHandler(opts *mcp.StreamableHTTPOptions) http.Handler {
+	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+		return server.sdkServer()
+	}, opts)
+}
+
+func (server *Server) streamableHTTPHandler(opts *mcp.StreamableHTTPOptions) http.Handler {
+	return server.StreamableHTTPHandler(opts)
+}
+
 func (server *Server) sdkServer() *mcp.Server {
 	sdkServer := mcp.NewServer(&mcp.Implementation{
 		Name:    "ebiten-mcp",
