@@ -2,6 +2,8 @@
 
 `ebiten-mcp`는 `ebitendebug` loopback HTTP 브리지를 MCP stdio 서버 형태로 감싸는 Go 라이브러리다. 게임 상태 조회와 디버그 명령 실행을 MCP 툴 호출로 연결한다.
 
+내부 서버 구현은 `github.com/modelcontextprotocol/go-sdk/mcp`를 사용한다. tool 이름과 bridge surface는 유지하고, stdio transport와 tool registration만 공식 SDK 위로 올렸다.
+
 ## 제공 툴
 
 - `game_health`
@@ -22,6 +24,7 @@
 
 - 게임 앱은 `libs/go/ebitendebug`로 디버그 브리지를 연다.
 - MCP 호스트와 연결할 때 이 라이브러리를 tool runner가 소비한다.
+- stdio 연결은 `go-sdk`의 `mcp.Server`와 `mcp.IOTransport`로 처리한다.
 - 실제 실행 엔트리는 `tools/ebiten-mcp-server`에 둔다.
 
 ## 검증

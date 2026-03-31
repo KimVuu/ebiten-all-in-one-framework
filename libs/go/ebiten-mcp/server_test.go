@@ -1,7 +1,6 @@
 package ebitenmcp
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -9,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func TestToolHandlersCallExpectedBridgeEndpoints(t *testing.T) {
@@ -140,47 +141,54 @@ func TestUnknownToolReturnsError(t *testing.T) {
 	}
 }
 
-func TestServeStdioHandlesInitializeListAndCall(t *testing.T) {
+func TestSDKServerListsAndCallsToolsOverInMemoryTransport(t *testing.T) {
 	bridge := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "application/json")
 		switch request.URL.Path {
-		case "/health":
-			_, _ = writer.Write([]byte(`{"gameId":"debug-bridge","version":"v1","connected":true}`))
+		case "/debug/commands/ui_click":
+			_, _ = writer.Write([]byte(`{"success":true,"status":"queued","resolvedTarget":"start-button","queuedFrame":42}`))
 		default:
 			http.NotFound(writer, request)
 		}
 	}))
 	defer bridge.Close()
 
-	input := strings.Join([]string{
-		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}`,
-		`{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}`,
-		`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`,
-		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"game_health","arguments":{}}}`,
-	}, "\n") + "\n"
-
-	output := &bytes.Buffer{}
 	server := New(NewBridgeClient(bridge.URL))
-	if err := server.ServeStdio(context.Background(), strings.NewReader(input), output); err != nil {
-		t.Fatalf("serveStdio failed: %v", err)
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1.0.0"}, nil)
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+
+	serverSession, err := server.sdkServer().Connect(context.Background(), serverTransport, nil)
+	if err != nil {
+		t.Fatalf("server connect failed: %v", err)
+	}
+	defer serverSession.Close()
+
+	clientSession, err := client.Connect(context.Background(), clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client connect failed: %v", err)
+	}
+	defer clientSession.Close()
+
+	tools, err := clientSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools failed: %v", err)
+	}
+	if len(tools.Tools) == 0 {
+		t.Fatalf("expected tools from sdk server")
 	}
 
-	lines := []string{}
-	scanner := bufio.NewScanner(bytes.NewReader(output.Bytes()))
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
+	result, err := clientSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "run_command",
+		Arguments: map[string]any{"name": "ui_click", "args": map[string]any{"node_id": "start-button"}},
+	})
+	if err != nil {
+		t.Fatalf("call tool failed: %v", err)
 	}
-	if len(lines) < 3 {
-		t.Fatalf("expected at least three responses, got %d", len(lines))
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
 	}
-
-	if !strings.Contains(lines[0], `"result":{"protocolVersion"`) {
-		t.Fatalf("expected initialize response, got %s", lines[0])
-	}
-	if !strings.Contains(lines[1], `"tools":[`) {
-		t.Fatalf("expected tools/list response, got %s", lines[1])
-	}
-	if !strings.Contains(lines[2], `"gameId":"debug-bridge"`) {
-		t.Fatalf("expected game health payload, got %s", lines[2])
+	if !bytes.Contains(encoded, []byte(`"resolvedTarget":"start-button"`)) {
+		t.Fatalf("expected resolved target in sdk result, got %s", string(encoded))
 	}
 }

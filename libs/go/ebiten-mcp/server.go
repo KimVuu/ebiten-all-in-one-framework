@@ -1,16 +1,18 @@
 package ebitenmcp
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type BridgeClient struct {
@@ -89,120 +91,70 @@ func (server *Server) callTool(ctx context.Context, name string, params map[stri
 }
 
 func (server *Server) ServeStdio(ctx context.Context, input io.Reader, output io.Writer) error {
-	scanner := bufio.NewScanner(input)
-	scanner.Buffer(make([]byte, 0, 1024), 1024*1024)
-
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-
-		var request rpcRequest
-		if err := json.Unmarshal([]byte(line), &request); err != nil {
-			if err := writeResponse(output, rpcResponse{
-				JSONRPC: "2.0",
-				Error: &rpcError{
-					Code:    -32700,
-					Message: "parse error",
-				},
-			}); err != nil {
-				return err
-			}
-			continue
-		}
-
-		response, shouldWrite := server.handleRequest(ctx, request)
-		if !shouldWrite {
-			continue
-		}
-		if err := writeResponse(output, response); err != nil {
-			return err
-		}
+	session, err := server.sdkServer().Connect(ctx, &mcp.IOTransport{
+		Reader: io.NopCloser(input),
+		Writer: nopWriteCloser{Writer: output},
+	}, nil)
+	if err != nil {
+		return err
 	}
-
-	return scanner.Err()
+	err = session.Wait()
+	if isBenignStdioClose(err) {
+		return nil
+	}
+	return err
 }
 
 func (server *Server) serveStdio(ctx context.Context, input io.Reader, output io.Writer) error {
 	return server.ServeStdio(ctx, input, output)
 }
 
-func (server *Server) handleRequest(ctx context.Context, request rpcRequest) (rpcResponse, bool) {
-	switch request.Method {
-	case "initialize":
-		var params struct {
-			ProtocolVersion string `json:"protocolVersion"`
-		}
-		_ = json.Unmarshal(request.Params, &params)
+func (server *Server) sdkServer() *mcp.Server {
+	sdkServer := mcp.NewServer(&mcp.Implementation{
+		Name:    "ebiten-mcp",
+		Version: "0.1.0",
+	}, nil)
 
-		return rpcResponse{
-			JSONRPC: "2.0",
-			ID:      request.ID,
-			Result: initializeResult{
-				ProtocolVersion: defaultString(params.ProtocolVersion, "2024-11-05"),
-				Capabilities: map[string]any{
-					"tools": map[string]any{},
-				},
-				ServerInfo: map[string]any{
-					"name":    "ebiten-mcp",
-					"version": "0.1.0",
-				},
-			},
-		}, true
-	case "notifications/initialized":
-		return rpcResponse{}, false
-	case "tools/list":
-		return rpcResponse{
-			JSONRPC: "2.0",
-			ID:      request.ID,
-			Result: map[string]any{
-				"tools": server.tools(),
-			},
-		}, true
-	case "tools/call":
-		var params struct {
-			Name      string         `json:"name"`
-			Arguments map[string]any `json:"arguments"`
+	for _, tool := range server.tools() {
+		switch tool.Name {
+		case "run_command":
+			mcp.AddTool(sdkServer, &mcp.Tool{
+				Name:        tool.Name,
+				Description: tool.Description,
+			}, server.runCommandTool)
+		default:
+			name := tool.Name
+			description := tool.Description
+			mcp.AddTool(sdkServer, &mcp.Tool{
+				Name:        name,
+				Description: description,
+			}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+				payload, err := server.CallTool(ctx, name, nil)
+				if err != nil {
+					return nil, nil, err
+				}
+				return nil, payload, nil
+			})
 		}
-		if err := json.Unmarshal(request.Params, &params); err != nil {
-			return rpcResponse{
-				JSONRPC: "2.0",
-				ID:      request.ID,
-				Error: &rpcError{
-					Code:    -32602,
-					Message: "invalid params",
-				},
-			}, true
-		}
-
-		payload, err := server.CallTool(ctx, params.Name, params.Arguments)
-		if err != nil {
-			return rpcResponse{
-				JSONRPC: "2.0",
-				ID:      request.ID,
-				Error: &rpcError{
-					Code:    -32000,
-					Message: err.Error(),
-				},
-			}, true
-		}
-
-		return rpcResponse{
-			JSONRPC: "2.0",
-			ID:      request.ID,
-			Result:  payload,
-		}, true
-	default:
-		return rpcResponse{
-			JSONRPC: "2.0",
-			ID:      request.ID,
-			Error: &rpcError{
-				Code:    -32601,
-				Message: "method not found",
-			},
-		}, true
 	}
+
+	return sdkServer
+}
+
+type runCommandInput struct {
+	Name string         `json:"name" jsonschema:"registered debug command name"`
+	Args map[string]any `json:"args,omitempty" jsonschema:"command arguments"`
+}
+
+func (server *Server) runCommandTool(ctx context.Context, req *mcp.CallToolRequest, input runCommandInput) (*mcp.CallToolResult, any, error) {
+	payload, err := server.CallTool(ctx, "run_command", map[string]any{
+		"name": input.Name,
+		"args": input.Args,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, payload, nil
 }
 
 func (server *Server) tools() []Tool {
@@ -296,43 +248,19 @@ func (client *BridgeClient) do(request *http.Request) (any, error) {
 	return payload, nil
 }
 
-type rpcRequest struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      json.RawMessage `json:"id,omitempty"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
+type nopWriteCloser struct {
+	io.Writer
 }
 
-type rpcResponse struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      json.RawMessage `json:"id,omitempty"`
-	Result  any             `json:"result,omitempty"`
-	Error   *rpcError       `json:"error,omitempty"`
-}
+func (nopWriteCloser) Close() error { return nil }
 
-type rpcError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-type initializeResult struct {
-	ProtocolVersion string         `json:"protocolVersion"`
-	Capabilities    map[string]any `json:"capabilities"`
-	ServerInfo      map[string]any `json:"serverInfo"`
-}
-
-func writeResponse(output io.Writer, response rpcResponse) error {
-	encoded, err := json.Marshal(response)
-	if err != nil {
-		return err
+func isBenignStdioClose(err error) bool {
+	if err == nil {
+		return false
 	}
-	_, err = output.Write(append(encoded, '\n'))
-	return err
-}
-
-func defaultString(value string, fallback string) string {
-	if value == "" {
-		return fallback
+	if errors.Is(err, io.EOF) {
+		return true
 	}
-	return value
+	message := err.Error()
+	return strings.Contains(message, "EOF") || strings.Contains(message, "server is closing")
 }

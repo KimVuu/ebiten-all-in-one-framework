@@ -2,6 +2,8 @@
 
 `tools/ebiten-mcp-server`는 `libs/go/ebiten-mcp`를 사용해 실행 중인 `ebitendebug` 브리지에 attach 하는 stdio MCP 서버다.
 
+내부 MCP 서버는 `github.com/modelcontextprotocol/go-sdk/mcp` 기반이다. 외부에 보이는 tool 표면은 그대로 유지하고, 공식 SDK transport와 session lifecycle을 사용한다.
+
 ## 제공 tool
 
 - `game_health`
@@ -36,6 +38,7 @@ EBITEN_DEBUG_ADDR=127.0.0.1:47831 go run .
 
 - `libs/go/ebiten-mcp`
 - `libs/go/ebitendebug`
+- `github.com/modelcontextprotocol/go-sdk/mcp`
 
 ## 검증
 
