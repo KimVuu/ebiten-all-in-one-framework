@@ -38,6 +38,16 @@ EBITEN_DEBUG_ADDR=127.0.0.1:47831 go run .
 ./scripts/run-ebiten-mcp-server.sh
 ```
 
+스크립트도 같은 환경변수를 그대로 받는다.
+
+```bash
+EBITEN_MCP_TRANSPORT=streamable-http \
+EBITEN_MCP_LISTEN_ADDR=127.0.0.1:47840 \
+EBITEN_MCP_HTTP_PATH=/mcp \
+EBITEN_DEBUG_ADDR=127.0.0.1:47831 \
+./scripts/run-ebiten-mcp-server.sh
+```
+
 HTTP MCP client가 직접 붙어야 하면 `streamable-http`로 실행한다.
 
 ```bash
