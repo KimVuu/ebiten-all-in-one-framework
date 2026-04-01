@@ -1,14 +1,14 @@
 # ebiten Ebiten UI Showcase
 
-`examples/go/ebiten-ui-showcase`는 `libs/go/ebiten-ui`의 코어 태그, 확장 컴포넌트, 게임 UI 프리셋을 한 화면에 합쳐 보여주는 단일 Ebiten 예제다. 동시에 `libs/go/ebiten-ui-debug`를 소비하는 기준 통합 예제이기도 하다.
+`examples/go/ebiten-ui-showcase`는 `libs/go/ebiten-ui`의 코어 태그, 확장 컴포넌트, 게임 UI 프리셋을 문서형 다중 페이지 구조로 보여주는 Ebiten 예제다. 동시에 `libs/go/ebiten-ui-debug`를 소비하는 기준 통합 예제이기도 하다.
 
-## 포함 내용
+## 화면 구조
 
-- 코어 DOM 태그
-- `Image`, `TextBlock`, `Spacer`, `Stack`, `ScrollView`
-- 입력/상태 컴포넌트
-- 데이터/오버레이 컴포넌트
-- `ebitenui/prefabs` 게임 UI 프리셋
+- 상단 헤더
+- 좌측 사이드바 navigation
+- 우측 상세 패널
+- 그룹 페이지와 leaf 페이지
+- 각 페이지별 설명, 실제 데모, 사용법, 코드 예제 문자열
 
 ## 실행
 
@@ -35,9 +35,10 @@ go test ./...
 
 - 선언형 DOM 트리 조립 예시 제공
 - `ebiten-ui` 레이아웃과 Ebiten 렌더러 연결 예시 제공
-- 태그, 컴포넌트, 프리셋을 한 번에 검증하는 단일 기준 예제 제공
+- `PageRouter`와 `PageScreen` 기반 문서형 UI 조립 예시 제공
+- 태그, 컴포넌트, 프리셋을 페이지별로 검증하는 기준 예제 제공
 - `ebiten-ui-debug`로 UI tree와 주요 섹션 레이아웃을 디버그 스냅샷으로 노출하는 기준 예제 제공
-- `ebitenui.PageLayout`와 런타임 기반 wheel scroll을 함께 검증하는 예제 제공
+- sidebar/detail 별도 scroll과 페이지 전환을 함께 검증하는 예제 제공
 - nested layout constraint, keyboard focus/navigation, 디버그 입력 주입을 함께 검증하는 예제 제공
 
 ## 디버그 브리지
@@ -63,6 +64,8 @@ go test ./...
 3. `/debug/ui/node/{id}`
 4. `run_command`로 `ui_click`, `ui_scroll`, `ui_type_text`
 5. `/debug/ui/capture`
+
+현재 선택된 페이지 정보는 scene summary와 UI snapshot root props의 `currentPageID`에서도 확인할 수 있다.
 
 `/debug/ui/capture`는 PNG artifact metadata만 반환하고, 이미지 bytes는 inline으로 싣지 않는다.
 이 예제는 `Config.ScreenshotsDir`를 명시해서 생성된 PNG를 저장소 루트의 [screenshots](/Users/kimyechan/Develop/Game/Ebiten/ebtien-aio-framework/screenshots) 아래에 고정 저장한다.

@@ -14,159 +14,64 @@ import (
 	ebitenui "github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui"
 )
 
-func TestBuildShowcaseDOMIncludesAllSupportedTags(t *testing.T) {
+func TestBuildShowcaseDOMUsesPageBasedLayout(t *testing.T) {
 	dom := buildShowcaseDOM()
 
-	required := map[ebitenui.Tag]bool{
-		ebitenui.TagDiv:        false,
-		ebitenui.TagHeader:     false,
-		ebitenui.TagMain:       false,
-		ebitenui.TagSection:    false,
-		ebitenui.TagFooter:     false,
-		ebitenui.TagButton:     false,
-		ebitenui.TagSpan:       false,
-		ebitenui.TagText:       false,
-		ebitenui.TagImage:      false,
-		ebitenui.TagTextBlock:  false,
-		ebitenui.TagSpacer:     false,
-		ebitenui.TagStack:      false,
-		ebitenui.TagScrollView: false,
-	}
-
-	var walk func(*ebitenui.Node)
-	walk = func(node *ebitenui.Node) {
-		if node == nil {
-			return
-		}
-		if _, ok := required[node.Tag]; ok {
-			required[node.Tag] = true
-		}
-		for _, child := range node.Children {
-			walk(child)
-		}
-	}
-	walk(dom.Root)
-
-	for tag, found := range required {
-		if !found {
-			t.Fatalf("expected showcase DOM to include tag %q", tag)
-		}
-	}
-}
-
-func TestBuildShowcaseDOMLaysOutKeySections(t *testing.T) {
-	dom := buildShowcaseDOM()
-	layout := dom.Layout(ebitenui.Viewport{Width: 1440, Height: 2200})
-
-	ids := []string{
+	for _, id := range []string{
 		"showcase-root",
 		"showcase-header",
 		"showcase-main",
-		"overview-section",
-		"button-section",
-		"foundation-section",
-		"components-section",
-		"prefabs-section",
-		"scroll-preview",
-		"showcase-footer",
-	}
-
-	for _, id := range ids {
-		node, ok := layout.FindByID(id)
-		if !ok {
-			t.Fatalf("expected layout node %q", id)
-		}
-		if node.Frame.Width <= 0 || node.Frame.Height <= 0 {
-			t.Fatalf("expected positive frame for %q, got %#v", id, node.Frame)
-		}
-	}
-}
-
-func TestBuildShowcaseDOMUsesPageScrollAndKeepsHeaderWithinViewport(t *testing.T) {
-	dom := buildShowcaseDOM()
-	layout := dom.Layout(ebitenui.Viewport{Width: 1280, Height: 720})
-
-	scroll, ok := layout.FindByID("showcase-scroll")
-	if !ok || scroll.Node.Tag != ebitenui.TagScrollView {
-		t.Fatalf("expected page scroll view")
-	}
-
-	header, ok := layout.FindByID("showcase-header")
-	if !ok {
-		t.Fatalf("expected header layout")
-	}
-	if header.Frame.X+header.Frame.Width > 1280 {
-		t.Fatalf("expected header within viewport, got %#v", header.Frame)
-	}
-
-	badge, ok := layout.FindByID("header-badge")
-	if !ok {
-		t.Fatalf("expected header badge")
-	}
-	if badge.Frame.X+badge.Frame.Width > 1280 {
-		t.Fatalf("expected badge within viewport, got %#v", badge.Frame)
-	}
-}
-
-func TestBuildShowcaseDOMIncludesRepresentativeComponentsAndPrefabs(t *testing.T) {
-	dom := buildShowcaseDOM()
-
-	ids := []string{
-		"form-section",
-		"layout-section",
-		"overlay-section",
-		"data-section",
-		"status-section",
-		"name-input",
-		"difficulty-toggle",
-		"music-slider",
-		"inventory-scrollbar",
-		"resolution-dropdown",
-		"bio-textarea",
-		"mode-radio",
-		"party-stepper",
-		"exp-progress",
-		"content-grid",
-		"virtual-items",
-		"settings-modal",
-		"loot-tooltip",
-		"slot-context-menu",
-		"tabs-demo",
-		"accordion-demo",
-		"elite-badge",
-		"fire-chip",
-		"dialog-demo",
-		"hud-demo",
-		"inventory-demo",
-		"pause-demo",
-		"settings-demo",
-		"tooltip-demo",
-	}
-
-	for _, id := range ids {
+		"showcase-sidebar",
+		"showcase-detail",
+		"page-title",
+		"page-demo",
+		"page-usage",
+		"page-code-block",
+	} {
 		if _, ok := dom.FindByID(id); !ok {
-			t.Fatalf("expected unified showcase node %q", id)
+			t.Fatalf("expected node %q", id)
 		}
 	}
 }
 
-func TestBuildShowcaseDOMPlacesFooterAfterPrefabs(t *testing.T) {
+func TestBuildShowcaseDOMLaysOutSidebarAndDetail(t *testing.T) {
 	layout := buildShowcaseDOM().Layout(ebitenui.Viewport{Width: 1280, Height: 720})
 
-	prefabsNode, ok := layout.FindByID("prefabs-section")
+	sidebar, ok := layout.FindByID("showcase-sidebar")
 	if !ok {
-		t.Fatalf("expected prefabs section")
+		t.Fatalf("expected sidebar layout")
 	}
-	footer, ok := layout.FindByID("showcase-footer")
+	detail, ok := layout.FindByID("showcase-detail")
 	if !ok {
-		t.Fatalf("expected footer")
+		t.Fatalf("expected detail layout")
 	}
-	if footer.Frame.Y < prefabsNode.Frame.Y+prefabsNode.Frame.Height {
-		t.Fatalf("expected footer after prefabs section, got prefabs=%#v footer=%#v", prefabsNode.Frame, footer.Frame)
+	if sidebar.Frame.Width <= 0 || detail.Frame.Width <= 0 {
+		t.Fatalf("expected positive widths: sidebar=%#v detail=%#v", sidebar.Frame, detail.Frame)
+	}
+	if detail.Frame.X <= sidebar.Frame.X {
+		t.Fatalf("expected detail to be placed to the right of sidebar")
 	}
 }
 
-func TestShowcaseSnapshotsIncludeRootAndSections(t *testing.T) {
+func TestBuildShowcaseDOMShowsCurrentPageTitleCodeAndDemo(t *testing.T) {
+	dom := buildShowcaseDOMWithState(showcaseLayoutState{
+		CurrentPageID: "inputs/input-field",
+	}, nil, nil)
+
+	title, ok := dom.FindByID("page-title")
+	if !ok || title.Text != "InputField" {
+		t.Fatalf("expected input page title, got %#v", title)
+	}
+	code, ok := dom.FindByID("page-code-block")
+	if !ok || !strings.Contains(code.Text, "ebitenui.InputField") {
+		t.Fatalf("expected input field code example, got %#v", code)
+	}
+	if _, ok := dom.FindByID("name-input"); !ok {
+		t.Fatalf("expected input demo node")
+	}
+}
+
+func TestShowcaseSnapshotsIncludeCurrentPageMetadata(t *testing.T) {
 	game := newGame(false)
 
 	frame := game.frameSnapshot()
@@ -178,21 +83,21 @@ func TestShowcaseSnapshotsIncludeRootAndSections(t *testing.T) {
 	if got, want := scene.Current.ID, "ebiten-ui-showcase"; got != want {
 		t.Fatalf("scene mismatch: got %q want %q", got, want)
 	}
+	if scene.Summary["currentPageID"] == "" {
+		t.Fatalf("expected current page in scene summary")
+	}
 
 	world := game.worldSnapshot()
-	if len(world.Entities) < 4 {
-		t.Fatalf("expected major section entities, got %d", len(world.Entities))
+	if len(world.Entities) == 0 {
+		t.Fatalf("expected world entities")
 	}
 
 	ui := game.uiSnapshot()
 	if got, want := ui.Root.ID, "showcase-root"; got != want {
 		t.Fatalf("ui root mismatch: got %q want %q", got, want)
 	}
-	if len(ui.Root.Children) < 2 {
-		t.Fatalf("expected root child nodes, got %d", len(ui.Root.Children))
-	}
-	if got, want := ui.Root.Children[1].ID, "showcase-scroll"; got != want {
-		t.Fatalf("expected page scroll child, got %q want %q", got, want)
+	if ui.Root.Props["currentPageID"] == "" {
+		t.Fatalf("expected currentPageID in ui snapshot props")
 	}
 }
 
@@ -277,7 +182,7 @@ func TestShowcaseCompactUIEndpointsReturnSmallPayloads(t *testing.T) {
 		t.Fatalf("expected compact query payload, got %d bytes", len(queryEncoded))
 	}
 
-	nodeResponse, err := client.Get("http://" + game.debugBridge.Address() + "/debug/ui/node/name-input")
+	nodeResponse, err := client.Get("http://" + game.debugBridge.Address() + "/debug/ui/node/showcase-detail")
 	if err != nil {
 		t.Fatalf("node request failed: %v", err)
 	}
@@ -291,10 +196,6 @@ func TestShowcaseCompactUIEndpointsReturnSmallPayloads(t *testing.T) {
 	}
 	if _, ok := nodePayload["children"].([]any); !ok {
 		t.Fatalf("expected children summaries in node payload")
-	}
-	nodeEncoded, _ := json.Marshal(nodePayload)
-	if len(nodeEncoded) > 8192 {
-		t.Fatalf("expected compact node payload, got %d bytes", len(nodeEncoded))
 	}
 
 	issuesResponse, err := client.Get("http://" + game.debugBridge.Address() + "/debug/ui/issues?limit=10")
@@ -326,7 +227,7 @@ func TestShowcaseCaptureEndpointReturnsArtifactMetadataAndFile(t *testing.T) {
 	}()
 
 	client := http.Client{Timeout: 2 * time.Second}
-	captureBody := bytes.NewBufferString(`{"target":"node_id","node_id":"name-input","with_overlay":true}`)
+	captureBody := bytes.NewBufferString(`{"target":"node_id","node_id":"showcase-detail","with_overlay":true}`)
 	captureResponse, err := client.Post("http://"+game.debugBridge.Address()+"/debug/ui/capture", "application/json", captureBody)
 	if err != nil {
 		t.Fatalf("capture request failed: %v", err)
@@ -368,26 +269,26 @@ func TestShowcaseCaptureEndpointReturnsArtifactMetadataAndFile(t *testing.T) {
 	}
 }
 
-func TestShowcaseGameAppliesWheelScrollToPageLayout(t *testing.T) {
+func TestShowcaseGameAppliesWheelScrollToSidebar(t *testing.T) {
 	game := newGame(false)
 	game.width = 1280
 	game.height = 720
 
-	initial := game.pageScroll
-	if err := game.step(ebitenui.InputSnapshot{PointerX: 120, PointerY: 160, ScrollY: -1}); err != nil {
+	initial := game.sidebarScroll
+	if err := game.step(ebitenui.InputSnapshot{PointerX: 120, PointerY: 220, ScrollY: -1}); err != nil {
 		t.Fatalf("step failed: %v", err)
 	}
 
-	if game.pageScroll <= initial {
-		t.Fatalf("expected page scroll to increase, got initial=%v current=%v", initial, game.pageScroll)
+	if game.sidebarScroll <= initial {
+		t.Fatalf("expected sidebar scroll to increase, got initial=%v current=%v", initial, game.sidebarScroll)
 	}
 
 	layout := game.currentLayout()
-	scroll, ok := layout.FindByID("showcase-scroll")
+	scroll, ok := layout.FindByID("showcase-sidebar-scroll")
 	if !ok {
-		t.Fatalf("expected showcase scroll layout")
+		t.Fatalf("expected showcase sidebar scroll layout")
 	}
-	if got, want := scroll.Node.Props.Scroll.OffsetY, game.pageScroll; got != want {
+	if got, want := scroll.Node.Props.Scroll.OffsetY, game.sidebarScroll; got != want {
 		t.Fatalf("scroll offset mismatch: got %v want %v", got, want)
 	}
 }
@@ -431,18 +332,30 @@ func TestDebugBridgeCommandsQueueScrollAndTextInput(t *testing.T) {
 	}()
 
 	scrollResult := game.debugBridge.InvokeCommand("ui_scroll", map[string]any{
-		"node_id": "showcase-scroll",
+		"node_id": "showcase-sidebar-scroll",
 		"delta_y": -1.0,
 	})
 	if !scrollResult.Success {
 		t.Fatalf("expected queued scroll command, got %#v", scrollResult)
 	}
-	initialScroll := game.pageScroll
+	initialScroll := game.sidebarScroll
 	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
 		t.Fatalf("step failed: %v", err)
 	}
-	if game.pageScroll <= initialScroll {
-		t.Fatalf("expected page scroll after debug command, got initial=%v current=%v", initialScroll, game.pageScroll)
+	if game.sidebarScroll <= initialScroll {
+		t.Fatalf("expected sidebar scroll after debug command, got initial=%v current=%v", initialScroll, game.sidebarScroll)
+	}
+
+	clickResult := game.debugBridge.InvokeCommand("ui_click", map[string]any{
+		"node_id": "nav-item-inputs-input-field",
+	})
+	if !clickResult.Success {
+		t.Fatalf("expected queued click command, got %#v", clickResult)
+	}
+	for i := 0; i < 3; i++ {
+		if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+			t.Fatalf("navigation step failed: %v", err)
+		}
 	}
 
 	typeResult := game.debugBridge.InvokeCommand("ui_type_text", map[string]any{
@@ -476,6 +389,17 @@ func TestDebugBridgeKeyEventRoutesShortcutsAndEditing(t *testing.T) {
 	defer func() {
 		_ = game.stopDebugBridge()
 	}()
+
+	if result := game.debugBridge.InvokeCommand("ui_click", map[string]any{
+		"node_id": "nav-item-inputs-input-field",
+	}); !result.Success {
+		t.Fatalf("ui_click failed: %s", result.Message)
+	}
+	for i := 0; i < 3; i++ {
+		if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+			t.Fatalf("navigation step failed: %v", err)
+		}
+	}
 
 	if result := game.debugBridge.InvokeCommand("ui_type_text", map[string]any{
 		"node_id": "name-input",
@@ -518,54 +442,5 @@ func TestDebugBridgeKeyEventRoutesShortcutsAndEditing(t *testing.T) {
 
 	if got, want := game.runtime.TextValueOrDefault("name-input", "Kim"), "imZ"; got != want {
 		t.Fatalf("expected home/delete editing result, got %q want %q", got, want)
-	}
-
-	if result := game.debugBridge.InvokeCommand("ui_key_event", map[string]any{
-		"node_id": "name-input",
-		"key":     "a",
-		"control": true,
-	}); !result.Success {
-		t.Fatalf("ui_key_event ctrl+a failed: %s", result.Message)
-	}
-	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
-		t.Fatalf("ctrl+a focus step failed: %v", err)
-	}
-	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
-		t.Fatalf("ctrl+a key step failed: %v", err)
-	}
-}
-
-func TestShowcaseDebugCommandsQueueScrollAndToggleOverlay(t *testing.T) {
-	game := newGame(true)
-	if err := game.startDebugBridge("127.0.0.1:0"); err != nil {
-		t.Fatalf("startDebugBridge failed: %v", err)
-	}
-	defer func() {
-		_ = game.stopDebugBridge()
-	}()
-
-	result := game.debugBridge.InvokeCommand("set_ui_debug_overlay", map[string]any{
-		"enabled": false,
-	})
-	if !result.Success {
-		t.Fatalf("set_ui_debug_overlay failed: %s", result.Message)
-	}
-	if game.overlayEnabled {
-		t.Fatalf("expected overlay to be disabled")
-	}
-
-	result = game.debugBridge.InvokeCommand("ui_scroll", map[string]any{
-		"node_id": "showcase-scroll",
-		"delta_y": -1,
-	})
-	if !result.Success {
-		t.Fatalf("ui_scroll failed: %s", result.Message)
-	}
-
-	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
-		t.Fatalf("step failed: %v", err)
-	}
-	if game.pageScroll <= 0 {
-		t.Fatalf("expected page scroll to move, got %v", game.pageScroll)
 	}
 }

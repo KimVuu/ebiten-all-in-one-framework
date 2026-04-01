@@ -17,6 +17,7 @@
 - `ProgressBar`, `Divider`, `Grid`, `List`, `VirtualList`, `Modal`, `Tooltip`, `ContextMenu`, `Tabs`, `Accordion`, `Badge`, `Chip`
 - `Dialog`, `HUDBar`, `InventoryGrid`, `PauseMenu`, `SettingsPanel`, `Tooltip` 프리셋
 - `PageLayout` 기반의 고정 헤더 + 스크롤 본문 레이아웃 헬퍼
+- `PageRoute`, `PageRouter`, `PageScreen` 기반의 중첩 페이지 탐색 조립
 - ID 기반 DOM 조회
 - `LayoutNode`의 `ParentID`, `ContentBounds`, `ClipRect`, `ClickableRect`, `Overflow` 계산 필드
 - `ValidateLayout` 기반의 레이아웃 검증과 constraint patch 제안
@@ -130,13 +131,14 @@ _ = layout
 
 기본 런타임은 `Tab` 포커스 이동, `Escape` 포커스 해제, `Enter` 기반 focused button 활성화, arrow 기반 scroll dispatch까지 처리한다.
 
-페이지 전체 스크롤이 필요한 화면은 `PageLayout`로 고정 헤더와 `ScrollView` 본문을 함께 구성하고, `OnScrollChange`로 외부 상태를 갱신하는 방식을 기본값으로 둔다.
+페이지 전체 스크롤이 필요한 화면은 `PageLayout`로 고정 헤더와 `ScrollView` 본문을 함께 구성하고, 문서형 UI나 툴형 화면은 `PageRouter + PageScreen`으로 좌측 navigation과 우측 detail panel을 조립하는 방식을 기본값으로 둔다.
 
 레이아웃 계산 결과를 디버그하거나 AI가 검사할 때는 `ValidateLayout(layout, viewport, opts)`를 사용하면 된다. 반환값은 `LayoutIssue`와 `ConstraintPatch` 중심으로 구성되어 있어 절대좌표가 아니라 제약 수정 단위로 다룰 수 있다.
 
 ## 패키지 구성
 
 - `ebitenui`: 노드, 스타일, 레이아웃, DOM 조회
+- `ebitenui` router surface: `PageRoute`, `PageRouter`, `PageScreen`
 - `ebitenui/renderer`: Ebiten 이미지 렌더링
 - `ebitenui/prefabs`: 게임 UI 프리셋
 

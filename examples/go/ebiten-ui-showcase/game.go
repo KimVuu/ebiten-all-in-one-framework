@@ -29,18 +29,30 @@ type game struct {
 	runtime        *ebitenui.Runtime
 	dom            *ebitenui.DOM
 	lastInput      ebitenui.InputSnapshot
-	pageScroll     float64
+	sidebarScroll  float64
+	detailScroll   float64
 	overlayEnabled bool
-	uiDebug        *ebitenuidebug.Adapter
-	debugBridge    *ebitendebug.Bridge
+
+	registry    ShowcasePageRegistry
+	router      *ebitenui.PageRouter
+	uiDebug     *ebitenuidebug.Adapter
+	debugBridge *ebitendebug.Bridge
 }
 
 func newGame(debugMode bool) *game {
+	registry := buildShowcasePageRegistry()
+	router := ebitenui.NewPageRouter(ebitenui.PageRouterConfig{
+		Routes:        registry.Routes,
+		InitialPageID: "overview",
+	})
+
 	g := &game{
 		width:          1280,
 		height:         720,
 		debugEnabled:   debugMode,
 		overlayEnabled: debugMode,
+		registry:       registry,
+		router:         router,
 	}
 	g.renderer = renderer.New()
 	g.runtime = ebitenui.NewRuntime()
@@ -88,35 +100,58 @@ func (g *game) step(input ebitenui.InputSnapshot) error {
 	g.tick++
 	g.frame++
 	frame := g.frame
-	width := maxInt(g.width, 1280)
-	height := maxInt(g.height, 720)
-	pageScroll := g.pageScroll
-
 	viewport := ebitenui.Viewport{
-		Width:  float64(width),
-		Height: float64(height),
+		Width:  float64(maxInt(g.width, 1280)),
+		Height: float64(maxInt(g.height, 720)),
 	}
 
-	dom := buildShowcaseDOMWithState(showcaseLayoutState{PageScroll: pageScroll}, nil, g.runtime)
+	state := showcaseLayoutState{
+		CurrentPageID: g.router.CurrentPageID(),
+		SidebarScroll: g.sidebarScroll,
+		DetailScroll:  g.detailScroll,
+	}
+
+	dom := buildShowcaseDOMWithState(state, nil, g.runtime)
 	layout := dom.Layout(viewport)
 	input = g.uiDebug.ApplyQueuedInput(frame, dom, g.runtime, layout, input)
 	input = g.applyHostKeyboardInput(dom, layout, input)
 
-	nextPageScroll := pageScroll
-	dom = buildShowcaseDOMWithState(showcaseLayoutState{PageScroll: pageScroll}, func(offset float64) {
-		nextPageScroll = offset
-	}, g.runtime)
-	g.runtime.Update(dom, viewport, input)
-
-	if nextPageScroll != pageScroll {
-		pageScroll = nextPageScroll
-		dom = buildShowcaseDOMWithState(showcaseLayoutState{PageScroll: pageScroll}, func(offset float64) {
-			nextPageScroll = offset
-		}, g.runtime)
-		g.runtime.Update(dom, viewport, input)
+	nextState := state
+	callbacks := &showcaseCallbacks{
+		OnNavigate: func(pageID string) {
+			nextState.CurrentPageID = pageID
+		},
+		OnSidebarScrollChange: func(offset float64) {
+			nextState.SidebarScroll = offset
+		},
+		OnDetailScrollChange: func(offset float64) {
+			nextState.DetailScroll = offset
+		},
 	}
 
-	g.pageScroll = pageScroll
+	dom = buildShowcaseDOMWithState(state, callbacks, g.runtime)
+	g.runtime.Update(dom, viewport, input)
+
+	if nextState.CurrentPageID == "" {
+		nextState.CurrentPageID = state.CurrentPageID
+	}
+	if !g.router.Navigate(nextState.CurrentPageID) {
+		nextState.CurrentPageID = state.CurrentPageID
+	}
+	nextState.CurrentPageID = g.router.CurrentPageID()
+
+	pageChanged := nextState.CurrentPageID != state.CurrentPageID
+	if pageChanged {
+		nextState.DetailScroll = 0
+	}
+
+	if pageChanged || nextState.SidebarScroll != state.SidebarScroll || nextState.DetailScroll != state.DetailScroll {
+		dom = buildShowcaseDOMWithState(nextState, callbacks, g.runtime)
+		g.runtime.Update(dom, viewport, stabilizeShowcaseInput(input))
+	}
+
+	g.sidebarScroll = nextState.SidebarScroll
+	g.detailScroll = nextState.DetailScroll
 	g.dom = dom
 	g.lastInput = input
 	return nil
@@ -129,12 +164,11 @@ func (g *game) Draw(screen *ebiten.Image) {
 	g.width = size.X
 	g.height = size.Y
 	dom := g.dom
-	pageScroll := g.pageScroll
 	overlayEnabled := g.overlayEnabled
 	g.mu.Unlock()
 
 	if dom == nil {
-		dom = buildShowcaseDOMWithState(showcaseLayoutState{PageScroll: pageScroll}, nil, g.runtime)
+		dom = buildShowcaseDOMWithState(g.currentState(), nil, g.runtime)
 	}
 
 	viewport := ebitenui.Viewport{
@@ -182,6 +216,19 @@ func (g *game) stopDebugBridge() error {
 	return bridge.Close(context.Background())
 }
 
+func (g *game) debugBridgeLikeCommand(name string, args map[string]any) ebitendebug.CommandResult {
+	g.mu.RLock()
+	bridge := g.debugBridge
+	g.mu.RUnlock()
+	if bridge != nil {
+		return bridge.InvokeCommand(name, args)
+	}
+
+	bridge = ebitendebug.New(ebitendebug.Config{Enabled: true, GameID: "ebiten-ui-showcase", Version: "v1"})
+	g.uiDebug.Attach(bridge)
+	return bridge.InvokeCommand(name, args)
+}
+
 func (g *game) frameSnapshot() ebitendebug.FrameSnapshot {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -213,6 +260,7 @@ func (g *game) sceneSnapshot() ebitendebug.SceneSnapshot {
 			"viewportHeight": g.height,
 			"frame":          g.frame,
 			"tick":           g.tick,
+			"currentPageID":  g.router.CurrentPageID(),
 		},
 	}
 }
@@ -223,26 +271,29 @@ func (g *game) worldSnapshot() ebitendebug.WorldSnapshot {
 		return ebitendebug.WorldSnapshot{}
 	}
 
-	sectionIDs := []string{
-		"overview-section",
-		"button-section",
-		"foundation-section",
-		"components-section",
-		"prefabs-section",
+	currentPageID := g.currentPageID()
+	entityIDs := []struct {
+		ID   string
+		Type string
+	}{
+		{ID: "showcase-sidebar", Type: "navigation"},
+		{ID: "showcase-detail", Type: "content"},
+		{ID: "nav-item-" + sanitizeID(currentPageID), Type: "nav-item"},
+		{ID: "page-demo", Type: "page-demo"},
 	}
 
-	entities := make([]ebitendebug.EntitySnapshot, 0, len(sectionIDs))
-	for _, id := range sectionIDs {
-		node, ok := layout.FindByID(id)
+	entities := make([]ebitendebug.EntitySnapshot, 0, len(entityIDs))
+	for _, entry := range entityIDs {
+		node, ok := layout.FindByID(entry.ID)
 		if !ok {
 			continue
 		}
 		entities = append(entities, ebitendebug.EntitySnapshot{
-			ID:      id,
-			Type:    "section",
+			ID:      entry.ID,
+			Type:    entry.Type,
 			Visible: true,
 			Enabled: true,
-			Tags:    []string{"showcase", "ui"},
+			Tags:    []string{"showcase", "ui", currentPageID},
 			Position: ebitendebug.Vector2{
 				X: node.Frame.X,
 				Y: node.Frame.Y,
@@ -252,7 +303,7 @@ func (g *game) worldSnapshot() ebitendebug.WorldSnapshot {
 				Y: node.Frame.Height,
 			},
 			Props: map[string]any{
-				"title": strings.TrimSuffix(id, "-section"),
+				"currentPageID": currentPageID,
 			},
 		})
 	}
@@ -266,7 +317,9 @@ func (g *game) uiSnapshot() ebitendebug.UISnapshot {
 		snapshot.Root.Props = map[string]any{}
 	}
 	g.mu.RLock()
-	snapshot.Root.Props["pageScroll"] = g.pageScroll
+	snapshot.Root.Props["currentPageID"] = g.router.CurrentPageID()
+	snapshot.Root.Props["sidebarScroll"] = g.sidebarScroll
+	snapshot.Root.Props["detailScroll"] = g.detailScroll
 	g.mu.RUnlock()
 	return snapshot
 }
@@ -287,8 +340,8 @@ func (g *game) currentLayout() *ebitenui.LayoutNode {
 	dom := g.dom
 	width := g.width
 	height := g.height
-	pageScroll := g.pageScroll
 	runtimeLayout := g.runtime.Layout()
+	state := g.currentStateLocked()
 	g.mu.RUnlock()
 
 	if width <= 0 {
@@ -299,7 +352,7 @@ func (g *game) currentLayout() *ebitenui.LayoutNode {
 	}
 
 	if dom == nil {
-		dom = buildShowcaseDOMWithState(showcaseLayoutState{PageScroll: pageScroll}, nil, g.runtime)
+		dom = buildShowcaseDOMWithState(state, nil, g.runtime)
 	}
 	if runtimeLayout != nil {
 		return runtimeLayout
@@ -309,6 +362,26 @@ func (g *game) currentLayout() *ebitenui.LayoutNode {
 		Width:  float64(width),
 		Height: float64(height),
 	})
+}
+
+func (g *game) currentPageID() string {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.router.CurrentPageID()
+}
+
+func (g *game) currentState() showcaseLayoutState {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.currentStateLocked()
+}
+
+func (g *game) currentStateLocked() showcaseLayoutState {
+	return showcaseLayoutState{
+		CurrentPageID: g.router.CurrentPageID(),
+		SidebarScroll: g.sidebarScroll,
+		DetailScroll:  g.detailScroll,
+	}
 }
 
 func (g *game) collectInput() ebitenui.InputSnapshot {
@@ -380,6 +453,32 @@ func (g *game) currentFrame() int {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.frame
+}
+
+func stabilizeShowcaseInput(input ebitenui.InputSnapshot) ebitenui.InputSnapshot {
+	input.PointerDown = false
+	input.ScrollX = 0
+	input.ScrollY = 0
+	input.Text = ""
+	input.Backspace = false
+	input.Delete = false
+	input.Home = false
+	input.End = false
+	input.Submit = false
+	input.Space = false
+	input.SelectAll = false
+	input.Shortcut = ""
+	input.Tab = false
+	input.Escape = false
+	input.ArrowUp = false
+	input.ArrowDown = false
+	input.ArrowLeft = false
+	input.ArrowRight = false
+	input.Shift = false
+	input.Control = false
+	input.Alt = false
+	input.Meta = false
+	return input
 }
 
 func maxInt(value, fallback int) int {
