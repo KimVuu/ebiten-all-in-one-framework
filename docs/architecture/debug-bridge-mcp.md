@@ -7,10 +7,14 @@
 
 ## 구조
 
-- `libs/go/ebitendebug`
+- `libs/go/ebiten-debug`
   - 게임 프로세스 안에서 실행된다.
   - 프레임, 씬, 월드, UI tree, 디버그 커맨드를 HTTP JSON으로 노출한다.
   - provider 등록과 수명주기만 책임진다.
+- `libs/go/ebiten-ui-debug`
+  - `ebiten-ui`와 `ebiten-debug`를 연결하는 재사용 어댑터다.
+  - UI snapshot 변환, compact query/inspect/issues/capture, overlay, debug input queue, 기본 UI command 등록을 담당한다.
+  - 새 프로젝트가 showcase 코드를 복사하지 않고도 UI 디버그 표면을 붙일 수 있게 만든다.
 - `libs/go/ebiten-mcp`
   - 별도 stdio runner나 호스트 프로세스에서 소비된다.
   - 실행 중인 디버그 브리지 주소에 attach 한다.
@@ -18,13 +22,14 @@
 - `tools/ebiten-mcp-server`
   - `libs/go/ebiten-mcp`를 사용해 실제 stdio MCP 서버 프로세스를 실행한다.
   - 배포와 로컬 실행 엔트리를 담당한다.
-- `examples/go/debug-bridge`
+- `examples/go/ebiten-debug-bridge`
   - 라이브러리 통합과 명령 흐름을 검증한다.
 
 ## 하네스 경계
 
 - 게임 진입점은 브리지 활성화 여부와 주소만 조립한다.
 - 게임 로직은 자신의 씬/엔티티/UI 상태를 스냅샷으로 변환해 provider로 등록한다.
+- UI 앱은 가능하면 `ebiten-ui-debug` 어댑터를 통해 UI provider와 command surface를 붙인다.
 - 브리지는 게임 내부 구조를 직접 탐색하지 않는다.
 - MCP 어댑터는 게임 엔진 타입에 의존하지 않고 HTTP 계약만 소비한다.
 

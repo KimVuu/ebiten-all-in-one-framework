@@ -1,6 +1,6 @@
 # Ebiten MCP Server
 
-`tools/ebiten-mcp-server`는 `libs/go/ebiten-mcp`를 사용해 실행 중인 `ebitendebug` 브리지에 attach 하는 stdio MCP 서버다.
+`tools/ebiten-mcp-server`는 `libs/go/ebiten-mcp`를 사용해 실행 중인 `ebiten-debug` 브리지에 attach 하는 stdio MCP 서버다. UI 관련 compact inspect/query/capture는 보통 `ebiten-ui-debug`가 브리지 쪽에 붙어 있을 때 함께 노출된다.
 
 내부 MCP 서버는 `github.com/modelcontextprotocol/go-sdk/mcp` 기반이다. 외부에 보이는 tool 표면은 그대로 유지하고, 공식 SDK transport와 session lifecycle을 사용한다.
 
@@ -81,7 +81,7 @@ go run .
 ## 의존 라이브러리
 
 - `libs/go/ebiten-mcp`
-- `libs/go/ebitendebug`
+- `libs/go/ebiten-debug`
 - `github.com/modelcontextprotocol/go-sdk/mcp`
 
 ## 검증
