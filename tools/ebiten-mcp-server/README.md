@@ -13,8 +13,15 @@
 - `get_scene_state`
 - `get_world_state`
 - `get_ui_state`
+- `get_ui_overview`
+- `query_ui_nodes`
+- `inspect_ui_node`
+- `list_ui_issues`
+- `capture_ui_screenshot`
 - `list_commands`
 - `run_command`
+
+`get_ui_state`는 full dump라 token 비용이 크다. UI 디자인 테스트 기본 경로는 `get_ui_overview -> query_ui_nodes -> inspect_ui_node -> run_command(ui_*) -> capture_ui_screenshot` 순서를 권장한다.
 
 ## 실행 방법
 

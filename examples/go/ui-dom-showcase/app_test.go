@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -215,6 +218,150 @@ func TestShowcaseDebugBridgeStartsWhenEnabled(t *testing.T) {
 		t.Fatalf("close failed: %v", err)
 	}
 	game.debugBridge = nil
+}
+
+func TestShowcaseCompactUIEndpointsReturnSmallPayloads(t *testing.T) {
+	game := newGame(true)
+	game.width = 1280
+	game.height = 720
+	if err := game.step(uidom.InputSnapshot{PointerX: 24, PointerY: 24}); err != nil {
+		t.Fatalf("step failed: %v", err)
+	}
+	if err := game.startDebugBridge("127.0.0.1:0"); err != nil {
+		t.Fatalf("startDebugBridge failed: %v", err)
+	}
+	defer func() {
+		_ = game.stopDebugBridge()
+	}()
+
+	client := http.Client{Timeout: 2 * time.Second}
+
+	overviewResponse, err := client.Get("http://" + game.debugBridge.Address() + "/debug/ui/overview")
+	if err != nil {
+		t.Fatalf("overview request failed: %v", err)
+	}
+	defer overviewResponse.Body.Close()
+	var overviewPayload map[string]any
+	if err := json.NewDecoder(overviewResponse.Body).Decode(&overviewPayload); err != nil {
+		t.Fatalf("decode overview failed: %v", err)
+	}
+	if overviewPayload["rootId"] == "" {
+		t.Fatalf("expected rootId in overview payload")
+	}
+	overviewEncoded, _ := json.Marshal(overviewPayload)
+	if bytes.Contains(overviewEncoded, []byte(`"children"`)) {
+		t.Fatalf("overview payload should not include full tree")
+	}
+	if len(overviewEncoded) > 4096 {
+		t.Fatalf("expected compact overview payload, got %d bytes", len(overviewEncoded))
+	}
+
+	queryBody := bytes.NewBufferString(`{"visible_only":true,"limit":10}`)
+	queryResponse, err := client.Post("http://"+game.debugBridge.Address()+"/debug/ui/query", "application/json", queryBody)
+	if err != nil {
+		t.Fatalf("query request failed: %v", err)
+	}
+	defer queryResponse.Body.Close()
+	var queryPayload map[string]any
+	if err := json.NewDecoder(queryResponse.Body).Decode(&queryPayload); err != nil {
+		t.Fatalf("decode query failed: %v", err)
+	}
+	nodes, ok := queryPayload["nodes"].([]any)
+	if !ok || len(nodes) == 0 {
+		t.Fatalf("expected queried nodes, got %#v", queryPayload["nodes"])
+	}
+	queryEncoded, _ := json.Marshal(queryPayload)
+	if len(queryEncoded) > 6144 {
+		t.Fatalf("expected compact query payload, got %d bytes", len(queryEncoded))
+	}
+
+	nodeResponse, err := client.Get("http://" + game.debugBridge.Address() + "/debug/ui/node/name-input")
+	if err != nil {
+		t.Fatalf("node request failed: %v", err)
+	}
+	defer nodeResponse.Body.Close()
+	var nodePayload map[string]any
+	if err := json.NewDecoder(nodeResponse.Body).Decode(&nodePayload); err != nil {
+		t.Fatalf("decode node failed: %v", err)
+	}
+	if _, ok := nodePayload["summary"].(map[string]any); !ok {
+		t.Fatalf("expected summary in node payload")
+	}
+	if _, ok := nodePayload["children"].([]any); !ok {
+		t.Fatalf("expected children summaries in node payload")
+	}
+	nodeEncoded, _ := json.Marshal(nodePayload)
+	if len(nodeEncoded) > 8192 {
+		t.Fatalf("expected compact node payload, got %d bytes", len(nodeEncoded))
+	}
+
+	issuesResponse, err := client.Get("http://" + game.debugBridge.Address() + "/debug/ui/issues?limit=10")
+	if err != nil {
+		t.Fatalf("issues request failed: %v", err)
+	}
+	defer issuesResponse.Body.Close()
+	var issuesPayload map[string]any
+	if err := json.NewDecoder(issuesResponse.Body).Decode(&issuesPayload); err != nil {
+		t.Fatalf("decode issues failed: %v", err)
+	}
+	if _, ok := issuesPayload["issues"].([]any); !ok {
+		t.Fatalf("expected issues array in issues payload")
+	}
+}
+
+func TestShowcaseCaptureEndpointReturnsArtifactMetadataAndFile(t *testing.T) {
+	game := newGame(true)
+	game.width = 1280
+	game.height = 720
+	if err := game.step(uidom.InputSnapshot{PointerX: 24, PointerY: 24}); err != nil {
+		t.Fatalf("step failed: %v", err)
+	}
+	if err := game.startDebugBridge("127.0.0.1:0"); err != nil {
+		t.Fatalf("startDebugBridge failed: %v", err)
+	}
+	defer func() {
+		_ = game.stopDebugBridge()
+	}()
+
+	client := http.Client{Timeout: 2 * time.Second}
+	captureBody := bytes.NewBufferString(`{"target":"node_id","node_id":"name-input","with_overlay":true}`)
+	captureResponse, err := client.Post("http://"+game.debugBridge.Address()+"/debug/ui/capture", "application/json", captureBody)
+	if err != nil {
+		t.Fatalf("capture request failed: %v", err)
+	}
+	defer captureResponse.Body.Close()
+
+	var capturePayload map[string]any
+	if err := json.NewDecoder(captureResponse.Body).Decode(&capturePayload); err != nil {
+		t.Fatalf("decode capture failed: %v", err)
+	}
+	artifactID, _ := capturePayload["artifactId"].(string)
+	if artifactID == "" {
+		t.Fatalf("expected artifactId in capture payload")
+	}
+	if path, _ := capturePayload["path"].(string); path == "" {
+		t.Fatalf("expected artifact path in capture payload")
+	}
+	captureEncoded, _ := json.Marshal(capturePayload)
+	if bytes.Contains(captureEncoded, []byte(`iVBOR`)) {
+		t.Fatalf("capture response should not inline image bytes")
+	}
+
+	artifactResponse, err := client.Get("http://" + game.debugBridge.Address() + "/debug/ui/artifacts/" + artifactID)
+	if err != nil {
+		t.Fatalf("artifact request failed: %v", err)
+	}
+	defer artifactResponse.Body.Close()
+	if got, want := artifactResponse.Header.Get("Content-Type"), "image/png"; got != want {
+		t.Fatalf("artifact content type mismatch: got %q want %q", got, want)
+	}
+	header := make([]byte, 8)
+	if _, err := io.ReadFull(artifactResponse.Body, header); err != nil {
+		t.Fatalf("read artifact header failed: %v", err)
+	}
+	if !bytes.HasPrefix(header, []byte{0x89, 'P', 'N', 'G'}) {
+		t.Fatalf("expected png header, got %x", header)
+	}
 }
 
 func TestShowcaseGameAppliesWheelScrollToPageLayout(t *testing.T) {

@@ -8,13 +8,29 @@
 - `/debug/frame`: 프레임 상태
 - `/debug/scene`: 현재 씬 상태
 - `/debug/world`: 엔티티 월드 상태
-- `/debug/ui`: `semantic`, `layout`, `computed`, `issues`, `inputState`를 포함한 UI 상태
+- `/debug/ui`: 전체 UI 트리 스냅샷. legacy full dump
+- `/debug/ui/overview`: 저토큰 overview
+- `/debug/ui/query`: 필터 가능한 노드 summary 목록
+- `/debug/ui/node/{id}`: 단일 노드 detail
+- `/debug/ui/issues`: flat issue 목록
+- `/debug/ui/capture`: PNG artifact metadata 생성
+- `/debug/ui/artifacts/{artifactId}`: artifact 다운로드
 - `/debug/commands`: 등록된 디버그 명령 목록
 - `/debug/commands/{name}`: 디버그 명령 실행
 
 ## UI 스냅샷
 
-`/debug/ui`는 화면별 `semantic` 정보, 레이아웃 제약, 계산된 bounds, 진단 이슈, 입력 상태를 함께 노출한다. 새 명령 표면은 `validate_ui_layout`, `inspect_ui_node`, `suggest_ui_constraint_fixes`, `set_ui_debug_overlay`, `ui_click`, `ui_scroll`, `ui_type_text`, `ui_key_event` 같은 작업을 main app이 직접 등록해 처리하는 전제를 따른다.
+`/debug/ui`는 화면별 `semantic` 정보, 레이아웃 제약, 계산된 bounds, 진단 이슈, 입력 상태를 함께 노출한다. 다만 design testing 기본 경로는 full tree dump가 아니라 아래 compact 체인을 사용한다.
+
+1. `/debug/ui/overview`
+2. `/debug/ui/query`
+3. `/debug/ui/node/{id}`
+4. `/debug/ui/issues`
+5. `/debug/ui/capture`
+
+`/debug/ui/capture`는 base64를 inline으로 싣지 않고 artifact metadata만 반환한다.
+
+새 명령 표면은 `validate_ui_layout`, `inspect_ui_node`, `suggest_ui_constraint_fixes`, `set_ui_debug_overlay`, `ui_click`, `ui_scroll`, `ui_type_text`, `ui_key_event` 같은 작업을 main app이 직접 등록해 처리하는 전제를 따른다.
 
 명령 응답은 `success`, `status`, `resolvedTarget`, `queuedFrame`, `reason`, `payload`를 담을 수 있다.
 

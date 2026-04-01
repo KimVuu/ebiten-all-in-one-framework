@@ -16,14 +16,22 @@
 - `get_scene_state`
 - `get_world_state`
 - `get_ui_state`
+- `get_ui_overview`
+- `query_ui_nodes`
+- `inspect_ui_node`
+- `list_ui_issues`
+- `capture_ui_screenshot`
 - `list_commands`
 - `run_command`
 
 ## UI 디버그 표면
 
-- `get_ui_state`는 `semantic`, `layout`, `computed`, `issues`, `inputState`를 포함한 UI 스냅샷을 그대로 전달한다.
+- `get_ui_state`는 `semantic`, `layout`, `computed`, `issues`, `inputState`를 포함한 full UI 스냅샷을 그대로 전달한다. legacy/high token cost 경로다.
+- `get_ui_overview`, `query_ui_nodes`, `inspect_ui_node`, `list_ui_issues`는 design/layout testing용 compact 표면이다.
+- `capture_ui_screenshot`는 PNG artifact metadata와 절대 경로만 반환하고, 이미지 bytes는 inline으로 싣지 않는다.
 - `run_command`는 `validate_ui_layout`, `inspect_ui_node`, `suggest_ui_constraint_fixes`, `set_ui_debug_overlay`, `ui_click`, `ui_scroll`, `ui_type_text`, `ui_key_event` 같은 명령을 전달하는 용도다.
-- 새 tool을 추가하지 않고 기존 `get_ui_state`와 `run_command`만 유지한다.
+
+권장 루프는 `get_ui_overview -> query_ui_nodes -> inspect_ui_node -> run_command(ui_*) -> capture_ui_screenshot` 순서다.
 
 ## 사용 방향
 

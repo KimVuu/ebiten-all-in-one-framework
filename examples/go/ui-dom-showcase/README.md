@@ -49,6 +49,22 @@ go test ./...
 - `/debug/scene`
 - `/debug/world`
 - `/debug/ui`
+- `/debug/ui/overview`
+- `/debug/ui/query`
+- `/debug/ui/node/{id}`
+- `/debug/ui/issues`
+- `/debug/ui/capture`
+- `/debug/ui/artifacts/{artifactId}`
+
+디자인 테스트 기본 경로는 full tree dump 대신 아래 순서를 쓴다.
+
+1. `/debug/ui/overview`
+2. `/debug/ui/query`
+3. `/debug/ui/node/{id}`
+4. `run_command`로 `ui_click`, `ui_scroll`, `ui_type_text`
+5. `/debug/ui/capture`
+
+`/debug/ui/capture`는 PNG artifact metadata만 반환하고, 이미지 bytes는 inline으로 싣지 않는다.
 
 추가로 `run_command`를 통해 아래 UI 디버그 명령을 사용할 수 있다.
 

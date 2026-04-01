@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -106,11 +108,17 @@ type commandDescriptor struct {
 }
 
 type Bridge struct {
-	config        Config
-	frameProvider func() FrameSnapshot
-	sceneProvider func() SceneSnapshot
-	worldProvider func() WorldSnapshot
-	uiProvider    func() UISnapshot
+	config             Config
+	frameProvider      func() FrameSnapshot
+	sceneProvider      func() SceneSnapshot
+	worldProvider      func() WorldSnapshot
+	uiProvider         func() UISnapshot
+	uiOverviewProvider func() UIOverviewSnapshot
+	uiQueryProvider    func(UIQueryRequest) UIQueryResult
+	uiNodeProvider     func(UINodeInspectRequest) (UINodeDetailSnapshot, bool)
+	uiIssuesProvider   func(UIIssueListRequest) UIIssueListSnapshot
+	uiCaptureProvider  func(UICaptureRequest) (UICaptureResult, bool)
+	uiArtifactProvider func(string) (UIArtifact, bool)
 
 	mu       sync.RWMutex
 	commands map[string]CommandHandler
@@ -154,6 +162,42 @@ func (bridge *Bridge) SetUIProvider(provider func() UISnapshot) {
 	bridge.mu.Lock()
 	defer bridge.mu.Unlock()
 	bridge.uiProvider = provider
+}
+
+func (bridge *Bridge) SetUIOverviewProvider(provider func() UIOverviewSnapshot) {
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	bridge.uiOverviewProvider = provider
+}
+
+func (bridge *Bridge) SetUIQueryProvider(provider func(UIQueryRequest) UIQueryResult) {
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	bridge.uiQueryProvider = provider
+}
+
+func (bridge *Bridge) SetUINodeProvider(provider func(UINodeInspectRequest) (UINodeDetailSnapshot, bool)) {
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	bridge.uiNodeProvider = provider
+}
+
+func (bridge *Bridge) SetUIIssuesProvider(provider func(UIIssueListRequest) UIIssueListSnapshot) {
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	bridge.uiIssuesProvider = provider
+}
+
+func (bridge *Bridge) SetUICaptureProvider(provider func(UICaptureRequest) (UICaptureResult, bool)) {
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	bridge.uiCaptureProvider = provider
+}
+
+func (bridge *Bridge) SetUIArtifactProvider(provider func(string) (UIArtifact, bool)) {
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	bridge.uiArtifactProvider = provider
 }
 
 func (bridge *Bridge) RegisterCommand(name string, handler CommandHandler) {
@@ -282,6 +326,101 @@ func (bridge *Bridge) buildHandler() http.Handler {
 		}
 		writeJSON(writer, http.StatusOK, bridge.uiSnapshot())
 	})
+	mux.HandleFunc("/debug/ui/overview", func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodGet {
+			writeJSON(writer, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+			return
+		}
+		writeJSON(writer, http.StatusOK, bridge.uiOverview())
+	})
+	mux.HandleFunc("/debug/ui/query", func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPost {
+			writeJSON(writer, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+			return
+		}
+		var query UIQueryRequest
+		if err := json.NewDecoder(request.Body).Decode(&query); err != nil && !errors.Is(err, io.EOF) {
+			writeJSON(writer, http.StatusBadRequest, map[string]any{"error": "invalid query request"})
+			return
+		}
+		writeJSON(writer, http.StatusOK, bridge.uiQuery(query))
+	})
+	mux.HandleFunc("/debug/ui/node/", func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodGet {
+			writeJSON(writer, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+			return
+		}
+		nodeID := strings.TrimPrefix(request.URL.Path, "/debug/ui/node/")
+		if nodeID == "" {
+			writeJSON(writer, http.StatusNotFound, map[string]any{"error": "missing node id"})
+			return
+		}
+		detail, ok := bridge.uiNode(UINodeInspectRequest{
+			NodeID:          nodeID,
+			IncludeChildren: defaultBoolQuery(request, "include_children", true),
+			ChildDepth:      defaultIntQuery(request, "child_depth", 1),
+			IncludeProps:    boolQuery(request, "include_props"),
+			IncludeIssues:   defaultBoolQuery(request, "include_issues", true),
+		})
+		if !ok {
+			writeJSON(writer, http.StatusNotFound, map[string]any{"error": "unknown node"})
+			return
+		}
+		writeJSON(writer, http.StatusOK, detail)
+	})
+	mux.HandleFunc("/debug/ui/issues", func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodGet {
+			writeJSON(writer, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+			return
+		}
+		writeJSON(writer, http.StatusOK, bridge.uiIssues(UIIssueListRequest{
+			Severity: request.URL.Query().Get("severity"),
+			Code:     request.URL.Query().Get("code"),
+			NodeID:   request.URL.Query().Get("node_id"),
+			Limit:    defaultIntQuery(request, "limit", 50),
+			Cursor:   request.URL.Query().Get("cursor"),
+		}))
+	})
+	mux.HandleFunc("/debug/ui/capture", func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPost {
+			writeJSON(writer, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+			return
+		}
+		var capture UICaptureRequest
+		if err := json.NewDecoder(request.Body).Decode(&capture); err != nil && !errors.Is(err, io.EOF) {
+			writeJSON(writer, http.StatusBadRequest, map[string]any{"error": "invalid capture request"})
+			return
+		}
+		if capture.Scale == 0 {
+			capture.Scale = 1
+		}
+		result, ok := bridge.uiCapture(capture)
+		if !ok {
+			writeJSON(writer, http.StatusBadRequest, map[string]any{"error": "capture unavailable"})
+			return
+		}
+		writeJSON(writer, http.StatusOK, result)
+	})
+	mux.HandleFunc("/debug/ui/artifacts/", func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodGet {
+			writeJSON(writer, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+			return
+		}
+		artifactID := strings.TrimPrefix(request.URL.Path, "/debug/ui/artifacts/")
+		if artifactID == "" {
+			writeJSON(writer, http.StatusNotFound, map[string]any{"error": "missing artifact id"})
+			return
+		}
+		artifact, ok := bridge.uiArtifact(artifactID)
+		if !ok {
+			writeJSON(writer, http.StatusNotFound, map[string]any{"error": "unknown artifact"})
+			return
+		}
+		if artifact.ContentType != "" {
+			writer.Header().Set("Content-Type", artifact.ContentType)
+		}
+		http.ServeFile(writer, request, artifact.Path)
+	})
 	mux.HandleFunc("/debug/commands", func(writer http.ResponseWriter, request *http.Request) {
 		if request.Method != http.MethodGet {
 			writeJSON(writer, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
@@ -387,6 +526,78 @@ func (bridge *Bridge) commandList() []commandDescriptor {
 	return commands
 }
 
+func (bridge *Bridge) uiOverview() UIOverviewSnapshot {
+	bridge.mu.RLock()
+	provider := bridge.uiOverviewProvider
+	bridge.mu.RUnlock()
+	if provider == nil {
+		return UIOverviewSnapshot{}
+	}
+	return provider()
+}
+
+func (bridge *Bridge) uiQuery(request UIQueryRequest) UIQueryResult {
+	bridge.mu.RLock()
+	provider := bridge.uiQueryProvider
+	bridge.mu.RUnlock()
+	if provider == nil {
+		return UIQueryResult{}
+	}
+	if request.Limit <= 0 {
+		request.Limit = 25
+	}
+	return provider(request)
+}
+
+func (bridge *Bridge) uiNode(request UINodeInspectRequest) (UINodeDetailSnapshot, bool) {
+	bridge.mu.RLock()
+	provider := bridge.uiNodeProvider
+	bridge.mu.RUnlock()
+	if provider == nil {
+		return UINodeDetailSnapshot{}, false
+	}
+	if request.ChildDepth <= 0 {
+		request.ChildDepth = 1
+	}
+	return provider(request)
+}
+
+func (bridge *Bridge) uiIssues(request UIIssueListRequest) UIIssueListSnapshot {
+	bridge.mu.RLock()
+	provider := bridge.uiIssuesProvider
+	bridge.mu.RUnlock()
+	if provider == nil {
+		return UIIssueListSnapshot{}
+	}
+	if request.Limit <= 0 {
+		request.Limit = 50
+	}
+	return provider(request)
+}
+
+func (bridge *Bridge) uiCapture(request UICaptureRequest) (UICaptureResult, bool) {
+	bridge.mu.RLock()
+	provider := bridge.uiCaptureProvider
+	bridge.mu.RUnlock()
+	if provider == nil {
+		return UICaptureResult{}, false
+	}
+	if request.Scale <= 0 {
+		request.Scale = 1
+	}
+	return provider(request)
+}
+
+func (bridge *Bridge) uiArtifact(id string) (UIArtifact, bool) {
+	bridge.mu.RLock()
+	provider := bridge.uiArtifactProvider
+	bridge.mu.RUnlock()
+	if provider == nil {
+		return UIArtifact{}, false
+	}
+	return provider(id)
+}
+
 func writeJSON(writer http.ResponseWriter, status int, payload any) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(status)
@@ -413,4 +624,37 @@ func defaultString(value string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func boolQuery(request *http.Request, name string) bool {
+	value := strings.TrimSpace(request.URL.Query().Get(name))
+	if value == "" {
+		return false
+	}
+	switch strings.ToLower(value) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func defaultBoolQuery(request *http.Request, name string, fallback bool) bool {
+	value := strings.TrimSpace(request.URL.Query().Get(name))
+	if value == "" {
+		return fallback
+	}
+	return boolQuery(request, name)
+}
+
+func defaultIntQuery(request *http.Request, name string, fallback int) int {
+	value := strings.TrimSpace(request.URL.Query().Get(name))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }

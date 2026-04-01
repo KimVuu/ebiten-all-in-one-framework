@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -67,6 +68,48 @@ func (server *Server) CallTool(ctx context.Context, name string, params map[stri
 		return server.client.get(ctx, "/debug/world")
 	case "get_ui_state":
 		return server.client.get(ctx, "/debug/ui")
+	case "get_ui_overview":
+		return server.client.get(ctx, "/debug/ui/overview")
+	case "query_ui_nodes":
+		if params == nil {
+			params = map[string]any{}
+		}
+		return server.client.post(ctx, "/debug/ui/query", params)
+	case "inspect_ui_node":
+		nodeID, _ := params["node_id"].(string)
+		if nodeID == "" {
+			return nil, fmt.Errorf("inspect_ui_node requires node_id")
+		}
+		query := map[string]string{}
+		if value, ok := params["include_children"].(bool); ok {
+			query["include_children"] = strconv.FormatBool(value)
+		}
+		if value, ok := intParam(params, "child_depth"); ok {
+			query["child_depth"] = strconv.Itoa(value)
+		}
+		if value, ok := params["include_props"].(bool); ok {
+			query["include_props"] = strconv.FormatBool(value)
+		}
+		if value, ok := params["include_issues"].(bool); ok {
+			query["include_issues"] = strconv.FormatBool(value)
+		}
+		return server.client.getWithQuery(ctx, "/debug/ui/node/"+url.PathEscape(nodeID), query)
+	case "list_ui_issues":
+		query := map[string]string{}
+		for _, key := range []string{"severity", "code", "node_id", "cursor"} {
+			if value, ok := params[key].(string); ok && strings.TrimSpace(value) != "" {
+				query[key] = value
+			}
+		}
+		if value, ok := intParam(params, "limit"); ok {
+			query["limit"] = strconv.Itoa(value)
+		}
+		return server.client.getWithQuery(ctx, "/debug/ui/issues", query)
+	case "capture_ui_screenshot":
+		if params == nil {
+			params = map[string]any{}
+		}
+		return server.client.post(ctx, "/debug/ui/capture", params)
 	case "list_commands":
 		return server.client.get(ctx, "/debug/commands")
 	case "run_command":
@@ -132,6 +175,26 @@ func (server *Server) sdkServer() *mcp.Server {
 				Name:        tool.Name,
 				Description: tool.Description,
 			}, server.runCommandTool)
+		case "query_ui_nodes", "list_ui_issues", "capture_ui_screenshot":
+			name := tool.Name
+			description := tool.Description
+			mcp.AddTool(sdkServer, &mcp.Tool{
+				Name:        name,
+				Description: description,
+			}, func(ctx context.Context, req *mcp.CallToolRequest, input map[string]any) (*mcp.CallToolResult, any, error) {
+				payload, err := server.CallTool(ctx, name, input)
+				if err != nil {
+					return nil, nil, err
+				}
+				return nil, payload, nil
+			})
+		case "inspect_ui_node":
+			name := tool.Name
+			description := tool.Description
+			mcp.AddTool(sdkServer, &mcp.Tool{
+				Name:        name,
+				Description: description,
+			}, server.inspectNodeTool)
 		default:
 			name := tool.Name
 			description := tool.Description
@@ -156,11 +219,42 @@ type runCommandInput struct {
 	Args map[string]any `json:"args,omitempty" jsonschema:"command arguments"`
 }
 
+type inspectNodeInput struct {
+	NodeID          string `json:"node_id" jsonschema:"node id to inspect"`
+	IncludeChildren *bool  `json:"include_children,omitempty" jsonschema:"include direct child summaries"`
+	ChildDepth      int    `json:"child_depth,omitempty" jsonschema:"child summary depth"`
+	IncludeProps    *bool  `json:"include_props,omitempty" jsonschema:"include props metadata"`
+	IncludeIssues   *bool  `json:"include_issues,omitempty" jsonschema:"include issue metadata"`
+}
+
 func (server *Server) runCommandTool(ctx context.Context, req *mcp.CallToolRequest, input runCommandInput) (*mcp.CallToolResult, any, error) {
 	payload, err := server.CallTool(ctx, "run_command", map[string]any{
 		"name": input.Name,
 		"args": input.Args,
 	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, payload, nil
+}
+
+func (server *Server) inspectNodeTool(ctx context.Context, req *mcp.CallToolRequest, input inspectNodeInput) (*mcp.CallToolResult, any, error) {
+	params := map[string]any{
+		"node_id": input.NodeID,
+	}
+	if input.IncludeChildren != nil {
+		params["include_children"] = *input.IncludeChildren
+	}
+	if input.ChildDepth > 0 {
+		params["child_depth"] = input.ChildDepth
+	}
+	if input.IncludeProps != nil {
+		params["include_props"] = *input.IncludeProps
+	}
+	if input.IncludeIssues != nil {
+		params["include_issues"] = *input.IncludeIssues
+	}
+	payload, err := server.CallTool(ctx, "inspect_ui_node", params)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -187,7 +281,47 @@ func (server *Server) tools() []Tool {
 		},
 		{
 			Name:        "get_ui_state",
-			Description: "Return UI tree with semantic/layout/computed/issues/inputState snapshot state.",
+			Description: "Return full UI tree with semantic/layout/computed/issues/inputState snapshot state. Legacy full dump with high token cost.",
+		},
+		{
+			Name:        "get_ui_overview",
+			Description: "Return compact UI overview for low-token design and layout testing.",
+		},
+		{
+			Name:        "query_ui_nodes",
+			Description: "Return paginated compact UI node summaries filtered by id, role, slot, type, text, visibility, interactivity, issue code, or viewport.",
+			InputSchema: map[string]any{
+				"type": "object",
+			},
+		},
+		{
+			Name:        "inspect_ui_node",
+			Description: "Return compact detail for a single UI node with summary, semantic, layout, computed metadata, issues, and direct child summaries.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"node_id":          map[string]any{"type": "string"},
+					"include_children": map[string]any{"type": "boolean"},
+					"child_depth":      map[string]any{"type": "integer"},
+					"include_props":    map[string]any{"type": "boolean"},
+					"include_issues":   map[string]any{"type": "boolean"},
+				},
+				"required": []string{"node_id"},
+			},
+		},
+		{
+			Name:        "list_ui_issues",
+			Description: "Return paginated flat UI issue rows for low-token layout validation.",
+			InputSchema: map[string]any{
+				"type": "object",
+			},
+		},
+		{
+			Name:        "capture_ui_screenshot",
+			Description: "Capture a UI screenshot artifact and return metadata plus absolute artifact path without inlining image bytes.",
+			InputSchema: map[string]any{
+				"type": "object",
+			},
 		},
 		{
 			Name:        "list_commands",
@@ -217,6 +351,22 @@ func (client *BridgeClient) get(ctx context.Context, path string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	return client.do(request)
+}
+
+func (client *BridgeClient) getWithQuery(ctx context.Context, path string, query map[string]string) (any, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseURL+path, nil)
+	if err != nil {
+		return nil, err
+	}
+	values := request.URL.Query()
+	for key, value := range query {
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		values.Set(key, value)
+	}
+	request.URL.RawQuery = values.Encode()
 	return client.do(request)
 }
 
@@ -273,4 +423,22 @@ func isBenignStdioClose(err error) bool {
 	}
 	message := err.Error()
 	return strings.Contains(message, "EOF") || strings.Contains(message, "server is closing")
+}
+
+func intParam(params map[string]any, key string) (int, bool) {
+	if params == nil {
+		return 0, false
+	}
+	switch value := params[key].(type) {
+	case int:
+		return value, true
+	case int32:
+		return int(value), true
+	case int64:
+		return int(value), true
+	case float64:
+		return int(value), true
+	default:
+		return 0, false
+	}
 }

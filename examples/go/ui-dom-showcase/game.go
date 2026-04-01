@@ -30,6 +30,7 @@ type game struct {
 	overlayEnabled bool
 	debugQueue     *debugInputQueue
 	debugBridge    *ebitendebug.Bridge
+	artifacts      map[string]ebitendebug.UIArtifact
 }
 
 func newGame(debugMode bool) *game {
@@ -41,6 +42,7 @@ func newGame(debugMode bool) *game {
 		renderer:       ebitenrenderer.New(),
 		runtime:        uidom.NewRuntime(),
 		debugQueue:     newDebugInputQueue(),
+		artifacts:      map[string]ebitendebug.UIArtifact{},
 	}
 }
 
@@ -128,6 +130,12 @@ func (g *game) startDebugBridge(addr string) error {
 	bridge.SetSceneProvider(g.sceneSnapshot)
 	bridge.SetWorldProvider(g.worldSnapshot)
 	bridge.SetUIProvider(g.uiSnapshot)
+	bridge.SetUIOverviewProvider(g.uiOverview)
+	bridge.SetUIQueryProvider(g.uiQuery)
+	bridge.SetUINodeProvider(g.uiNodeDetail)
+	bridge.SetUIIssuesProvider(g.uiIssues)
+	bridge.SetUICaptureProvider(g.uiCapture)
+	bridge.SetUIArtifactProvider(g.uiArtifact)
 	g.registerDebugCommands(bridge)
 	if err := bridge.Start(); err != nil {
 		return err
@@ -254,6 +262,74 @@ func (g *game) uiSnapshot() ebitendebug.UISnapshot {
 	}
 	snapshot.Root.Props["pageScroll"] = pageScroll
 	return snapshot
+}
+
+func (g *game) uiOverview() ebitendebug.UIOverviewSnapshot {
+	layout := g.currentLayout()
+	if layout == nil {
+		return ebitendebug.UIOverviewSnapshot{}
+	}
+	return buildCompactUIOverview(layout, g.currentViewport(), buildDebugLayoutReport(layout, g.currentViewport()), g.runtime, g.lastInput, g.debugQueue.len())
+}
+
+func (g *game) uiQuery(request ebitendebug.UIQueryRequest) ebitendebug.UIQueryResult {
+	layout := g.currentLayout()
+	if layout == nil {
+		return ebitendebug.UIQueryResult{}
+	}
+	viewport := g.currentViewport()
+	return queryCompactUINodes(layout, viewport, buildDebugLayoutReport(layout, viewport), request)
+}
+
+func (g *game) uiNodeDetail(request ebitendebug.UINodeInspectRequest) (ebitendebug.UINodeDetailSnapshot, bool) {
+	layout := g.currentLayout()
+	if layout == nil {
+		return ebitendebug.UINodeDetailSnapshot{}, false
+	}
+	viewport := g.currentViewport()
+	return inspectCompactUINode(layout, viewport, buildDebugLayoutReport(layout, viewport), request)
+}
+
+func (g *game) uiIssues(request ebitendebug.UIIssueListRequest) ebitendebug.UIIssueListSnapshot {
+	layout := g.currentLayout()
+	if layout == nil {
+		return ebitendebug.UIIssueListSnapshot{}
+	}
+	viewport := g.currentViewport()
+	return listCompactUIIssues(buildDebugLayoutReport(layout, viewport), request)
+}
+
+func (g *game) uiCapture(request ebitendebug.UICaptureRequest) (ebitendebug.UICaptureResult, bool) {
+	layout := g.currentLayout()
+	if layout == nil {
+		return ebitendebug.UICaptureResult{}, false
+	}
+	result, artifact, ok := captureCompactUIScreenshot("ui-dom-showcase", layout, g.currentViewport(), buildDebugLayoutReport(layout, g.currentViewport()), request)
+	if !ok {
+		return ebitendebug.UICaptureResult{}, false
+	}
+	g.mu.Lock()
+	g.artifacts[artifact.ID] = artifact
+	g.mu.Unlock()
+	return result, true
+}
+
+func (g *game) uiArtifact(id string) (ebitendebug.UIArtifact, bool) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	artifact, ok := g.artifacts[id]
+	return artifact, ok
+}
+
+func (g *game) currentViewport() uidom.Viewport {
+	g.mu.RLock()
+	width := g.width
+	height := g.height
+	g.mu.RUnlock()
+	return uidom.Viewport{
+		Width:  float64(maxInt(width, 1280)),
+		Height: float64(maxInt(height, 720)),
+	}
 }
 
 func (g *game) currentLayout() *uidom.LayoutNode {

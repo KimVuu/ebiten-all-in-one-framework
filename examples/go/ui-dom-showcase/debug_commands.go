@@ -490,18 +490,6 @@ func (g *game) currentFrame() int {
 	return g.frame
 }
 
-func (g *game) currentViewport() uidom.Viewport {
-	g.mu.RLock()
-	width := g.width
-	height := g.height
-	g.mu.RUnlock()
-
-	return uidom.Viewport{
-		Width:  float64(maxInt(width, 1280)),
-		Height: float64(maxInt(height, 720)),
-	}
-}
-
 func (g *game) applyQueuedDebugEffects(frame int, dom *uidom.DOM, layout *uidom.LayoutNode, input uidom.InputSnapshot) uidom.InputSnapshot {
 	effects := g.debugQueue.drain(frame)
 	if len(effects) == 0 {
