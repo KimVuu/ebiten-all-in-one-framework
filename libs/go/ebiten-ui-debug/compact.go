@@ -38,7 +38,7 @@ func buildCompactUIOverview(layout *ebitenui.LayoutNode, viewport ebitenui.Viewp
 	topLevel := make([]ebitendebug.UINodeSummarySnapshot, 0, len(layout.Children))
 	visibleCount := 0
 	for _, ref := range refs {
-		if ref.layout != nil && inViewport(ref.layout.Frame, viewport) {
+		if ref.layout != nil && report.visibleByNode[ref.layout.Node.Props.ID] {
 			visibleCount++
 		}
 	}
@@ -105,7 +105,7 @@ func queryCompactUINodes(layout *ebitenui.LayoutNode, viewport ebitenui.Viewport
 }
 
 func inspectCompactUINode(layout *ebitenui.LayoutNode, viewport ebitenui.Viewport, report debugLayoutReport, request ebitendebug.UINodeInspectRequest) (ebitendebug.UINodeDetailSnapshot, bool) {
-	target, ok := resolveDebugTarget(layout, request.NodeID)
+	target, ok := resolveExactTarget(layout, request.NodeID)
 	if !ok {
 		return ebitendebug.UINodeDetailSnapshot{}, false
 	}
@@ -114,7 +114,7 @@ func inspectCompactUINode(layout *ebitenui.LayoutNode, viewport ebitenui.Viewpor
 		Summary:  compactSummaryForNode(target.Node, parent, report, viewport),
 		Semantic: semanticMetadata(target.Node),
 		Layout:   layoutMetadata(target.Node),
-		Computed: computedMetadata(target.Node, parent),
+		Computed: computedMetadata(target.Node, parent, report.visibleByNode[target.Node.Node.Props.ID]),
 	}
 	if request.IncludeIssues {
 		detail.Issues = issuesForNode(report, target.Node.Node.Props.ID)
@@ -123,7 +123,11 @@ func inspectCompactUINode(layout *ebitenui.LayoutNode, viewport ebitenui.Viewpor
 		detail.Props = compactPropsForNode(target.Node)
 	}
 	if request.IncludeChildren {
-		detail.Children = collectDirectChildSummaries(target.Node, report, viewport)
+		depth := request.ChildDepth
+		if depth <= 0 {
+			depth = 1
+		}
+		detail.Children = collectChildSummaries(target.Node, report, viewport, depth)
 	}
 	return detail, true
 }
@@ -309,7 +313,7 @@ func compactSummaryForNode(layout *ebitenui.LayoutNode, parent *ebitenui.LayoutN
 		Role:        nodeRole(layout),
 		Slot:        nodeSlot(layout),
 		Bounds:      rectToDebug(layout.Frame),
-		Visible:     inViewport(layout.Frame, viewport),
+		Visible:     report.visibleByNode[layout.Node.Props.ID],
 		Enabled:     !layout.Node.Props.State.Disabled,
 		ChildCount:  len(layout.Children),
 		IssueCount:  len(report.issuesByNode[layout.Node.Props.ID]),
@@ -338,6 +342,20 @@ func collectDirectChildSummaries(layout *ebitenui.LayoutNode, report debugLayout
 	children := make([]ebitendebug.UINodeSummarySnapshot, 0, len(layout.Children))
 	for _, child := range layout.Children {
 		children = append(children, compactSummaryForNode(child, layout, report, viewport))
+	}
+	return children
+}
+
+func collectChildSummaries(layout *ebitenui.LayoutNode, report debugLayoutReport, viewport ebitenui.Viewport, depth int) []ebitendebug.UINodeSummarySnapshot {
+	if layout == nil || depth <= 0 {
+		return nil
+	}
+	children := make([]ebitendebug.UINodeSummarySnapshot, 0)
+	for _, child := range layout.Children {
+		children = append(children, compactSummaryForNode(child, layout, report, viewport))
+		if depth > 1 {
+			children = append(children, collectChildSummaries(child, report, viewport, depth-1)...)
+		}
 	}
 	return children
 }
@@ -491,7 +509,7 @@ func resolveCaptureRect(layout *ebitenui.LayoutNode, viewport ebitenui.Viewport,
 	case "", "viewport":
 		return applyPadding(bounds, request.Padding, bounds), true
 	case "node_id":
-		target, ok := resolveDebugTarget(layout, request.NodeID)
+		target, ok := resolveExactTarget(layout, request.NodeID)
 		if !ok {
 			return image.Rectangle{}, false
 		}
@@ -603,11 +621,11 @@ func containsPoint(rect ebitenui.Rect, x, y float64) bool {
 }
 
 func repoRootDir() string {
+	if cwd, err := os.Getwd(); err == nil {
+		return cwd
+	}
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		if cwd, err := os.Getwd(); err == nil {
-			return cwd
-		}
 		return "."
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))

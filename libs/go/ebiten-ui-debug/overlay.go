@@ -35,14 +35,16 @@ type debugLayoutReport struct {
 	InvalidNodeCount int
 	issuesByNode     map[string][]debugLayoutIssue
 	invalidNodes     map[string]bool
+	visibleByNode    map[string]bool
 }
 
 func buildDebugLayoutReport(layout *ebitenui.LayoutNode, viewport ebitenui.Viewport) debugLayoutReport {
 	report := debugLayoutReport{
-		Viewport:     viewport,
-		IssueSummary: map[string]int{},
-		issuesByNode: map[string][]debugLayoutIssue{},
-		invalidNodes: map[string]bool{},
+		Viewport:      viewport,
+		IssueSummary:  map[string]int{},
+		issuesByNode:  map[string][]debugLayoutIssue{},
+		invalidNodes:  map[string]bool{},
+		visibleByNode: map[string]bool{},
 	}
 	if layout == nil {
 		return report
@@ -82,6 +84,7 @@ func buildDebugLayoutReport(layout *ebitenui.LayoutNode, viewport ebitenui.Viewp
 	}
 	report.SummarySnapshot.Total = len(report.Issues)
 	report.SummarySnapshot.InvalidNodes = report.InvalidNodeCount
+	populateVisibility(layout, ebitenui.Rect{X: 0, Y: 0, Width: viewport.Width, Height: viewport.Height}, report.visibleByNode)
 	return report
 }
 
@@ -142,12 +145,12 @@ func convertLayoutToUISnapshot(layout *ebitenui.LayoutNode, parent *ebitenui.Lay
 		ID:       layout.Node.Props.ID,
 		Type:     string(layout.Node.Tag),
 		Text:     textValue,
-		Visible:  true,
+		Visible:  report.visibleByNode[layout.Node.Props.ID],
 		Enabled:  !layout.Node.Props.State.Disabled,
 		ParentID: layout.ParentID,
 		Semantic: semanticMetadata(layout),
 		Layout:   layoutMetadata(layout),
-		Computed: computedMetadata(layout, parent),
+		Computed: computedMetadata(layout, parent, report.visibleByNode[layout.Node.Props.ID]),
 		Bounds:   bounds,
 		Issues:   issuesForNode(report, layout.Node.Props.ID),
 		Props:    props,
@@ -345,13 +348,13 @@ func layoutMetadata(layout *ebitenui.LayoutNode) *ebitendebug.UILayoutSnapshot {
 	return result
 }
 
-func computedMetadata(layout *ebitenui.LayoutNode, parent *ebitenui.LayoutNode) *ebitendebug.UIComputedSnapshot {
+func computedMetadata(layout *ebitenui.LayoutNode, parent *ebitenui.LayoutNode, visible bool) *ebitendebug.UIComputedSnapshot {
 	if layout == nil {
 		return nil
 	}
 	computed := &ebitendebug.UIComputedSnapshot{
 		Bounds:  rectToDebug(layout.Frame),
-		Visible: true,
+		Visible: visible,
 	}
 	if parent != nil {
 		parentBounds := rectToDebug(parent.Frame)
@@ -613,6 +616,51 @@ func textOverflows(layout *ebitenui.LayoutNode) bool {
 
 func intersects(a, b ebitenui.Rect) bool {
 	return a.X < b.X+b.Width && a.X+a.Width > b.X && a.Y < b.Y+b.Height && a.Y+a.Height > b.Y
+}
+
+func intersectionRect(a, b ebitenui.Rect) ebitenui.Rect {
+	minX := maxFloat(a.X, b.X)
+	minY := maxFloat(a.Y, b.Y)
+	maxX := minFloat(a.X+a.Width, b.X+b.Width)
+	maxY := minFloat(a.Y+a.Height, b.Y+b.Height)
+	if maxX <= minX || maxY <= minY {
+		return ebitenui.Rect{}
+	}
+	return ebitenui.Rect{
+		X:      minX,
+		Y:      minY,
+		Width:  maxX - minX,
+		Height: maxY - minY,
+	}
+}
+
+func populateVisibility(layout *ebitenui.LayoutNode, inheritedClip ebitenui.Rect, visibleByNode map[string]bool) {
+	if layout == nil || layout.Node == nil {
+		return
+	}
+
+	nodeVisible := intersects(layout.Frame, inheritedClip)
+	visibleByNode[layout.Node.Props.ID] = nodeVisible
+
+	childClip := inheritedClip
+	if layout.ClipChildren {
+		clip := layout.ClipRect
+		if clip == (ebitenui.Rect{}) {
+			clip = layout.Frame
+		}
+		childClip = intersectionRect(childClip, clip)
+	}
+
+	for _, child := range layout.Children {
+		populateVisibility(child, childClip, visibleByNode)
+	}
+}
+
+func minFloat(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func maxFloat(a, b float64) float64 {

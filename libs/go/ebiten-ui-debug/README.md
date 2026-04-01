@@ -13,6 +13,8 @@
 - 기본 UI command 등록
 - `screenshots/<game-id>/` 기준 artifact 경로 관리
 
+기본 screenshot 경로는 `ScreenshotsDir`가 비어 있을 때 현재 작업 디렉터리 아래 `screenshots/<game-id>/`다. 앱이 고정 저장 위치를 원하면 `Config.ScreenshotsDir`를 명시적으로 넘기는 방식을 기본값으로 둔다.
+
 ## 핵심 API
 
 - `NewAdapter(config, callbacks)`
@@ -26,6 +28,8 @@
 - `UIIssues(request)`
 - `UICapture(request)`
 - `Artifact(id)`
+
+`inspect`와 `capture(target=node_id)`는 요청한 exact node를 기준으로 동작한다. 반대로 `ui_click`, `ui_pointer_*`, `ui_scroll`은 interactive 또는 scroll target으로 승격될 수 있다.
 
 ## 사용 방향
 

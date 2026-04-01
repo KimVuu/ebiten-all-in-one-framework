@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -43,7 +45,8 @@ func newGame(debugMode bool) *game {
 	g.renderer = renderer.New()
 	g.runtime = ebitenui.NewRuntime()
 	g.uiDebug = ebitenuidebug.NewAdapter(ebitenuidebug.Config{
-		GameID: "ebiten-ui-showcase",
+		GameID:         "ebiten-ui-showcase",
+		ScreenshotsDir: showcaseScreenshotsDir(),
 	}, ebitenuidebug.Callbacks{
 		CurrentLayout:   g.currentLayout,
 		CurrentViewport: g.currentViewport,
@@ -64,6 +67,14 @@ func newGame(debugMode bool) *game {
 		},
 	})
 	return g
+}
+
+func showcaseScreenshotsDir() string {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return filepath.Join(".", "screenshots")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", "..", "screenshots"))
 }
 
 func (g *game) Update() error {

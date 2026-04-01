@@ -74,6 +74,37 @@ func TestResolveDebugTargetFindsInteractiveAncestor(t *testing.T) {
 	}
 }
 
+func TestResolveExactTargetReturnsRequestedNode(t *testing.T) {
+	dom := ebitenui.New(
+		ebitenui.Div(ebitenui.Props{
+			ID: "root",
+			Style: ebitenui.Style{
+				Width:  ebitenui.Px(240),
+				Height: ebitenui.Px(120),
+			},
+		},
+			ebitenui.InteractiveButton(ebitenui.Props{
+				ID: "play-button",
+				Style: ebitenui.Style{
+					Width:  ebitenui.Px(160),
+					Height: ebitenui.Px(48),
+				},
+			},
+				ebitenui.Text("Play", ebitenui.Props{ID: "play-label"}),
+			),
+		),
+	)
+
+	layout := dom.Layout(ebitenui.Viewport{Width: 240, Height: 120})
+	target, ok := resolveExactTarget(layout, "play-label")
+	if !ok {
+		t.Fatalf("expected exact target")
+	}
+	if got, want := target.ID, "play-label"; got != want {
+		t.Fatalf("target mismatch: got %q want %q", got, want)
+	}
+}
+
 func TestDebugLayoutReportFlagsInvalidGeometry(t *testing.T) {
 	dom := ebitenui.New(
 		ebitenui.Div(ebitenui.Props{

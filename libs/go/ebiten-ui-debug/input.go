@@ -184,6 +184,25 @@ func (queue *debugInputQueue) queueOverlayToggle(startFrame int, enabled bool) d
 	})
 }
 
+func resolveExactTarget(layout *ebitenui.LayoutNode, nodeID string) (debugResolvedTarget, bool) {
+	path := findLayoutPath(layout, nodeID)
+	if len(path) == 0 {
+		return debugResolvedTarget{}, false
+	}
+
+	leaf := path[len(path)-1]
+	frame := leaf.Frame
+	if leaf.ClickableRect != (ebitenui.Rect{}) {
+		frame = leaf.ClickableRect
+	}
+	return debugResolvedTarget{
+		ID:    leaf.Node.Props.ID,
+		Frame: frame,
+		Node:  leaf,
+		Path:  path,
+	}, true
+}
+
 func resolveDebugTarget(layout *ebitenui.LayoutNode, nodeID string) (debugResolvedTarget, bool) {
 	path := findLayoutPath(layout, nodeID)
 	if len(path) == 0 {
