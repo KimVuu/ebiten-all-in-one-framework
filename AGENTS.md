@@ -42,8 +42,9 @@
 
 ## 하네스 엔지니어링
 
-이 저장소의 Ebiten/Ebitengine 앱은 하네스 중심 조립을 기본값으로 삼는다. 앱 진입점은 조립만 하고, 루프와 씬 생명주기, 공통 컨텍스트, 디버그 기능은 하네스가 소유하는 방향으로 설계한다.  
-상세 문서: [docs/architecture/harness-engineering.md](docs/architecture/harness-engineering.md)
+이 저장소의 Ebiten/Ebitengine 앱은 하네스 중심 조립을 기본값으로 삼는다. 앱 진입점은 조립만 하고, 루프와 씬 생명주기, 공통 컨텍스트, 디버그 기능은 하네스가 소유하는 방향으로 설계한다.
+12원칙 평가는 개별 라이브러리나 도구 설명이 아니라, 어떤 대상에도 재사용되는 공통 평가 프레임워크로 관리한다.
+상세 문서: [docs/architecture/harness-engineering.md](docs/architecture/harness-engineering.md), [docs/architecture/harness-principles.md](docs/architecture/harness-principles.md)
 
 ## 응답 원칙
 
@@ -68,4 +69,5 @@
 - 모노레포 구조: [docs/architecture/monorepo.md](docs/architecture/monorepo.md)
 - 워크스페이스 계약: [docs/architecture/workspace-contract.md](docs/architecture/workspace-contract.md)
 - 하네스 엔지니어링: [docs/architecture/harness-engineering.md](docs/architecture/harness-engineering.md)
+- 하네스 12원칙 평가 기준: [docs/architecture/harness-principles.md](docs/architecture/harness-principles.md)
 - 명명 규칙: [docs/conventions/naming.md](docs/conventions/naming.md)

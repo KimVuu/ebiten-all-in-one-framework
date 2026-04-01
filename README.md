@@ -29,6 +29,7 @@
 ## 문서 시작점
 
 - 아키텍처: [docs/architecture/monorepo.md](docs/architecture/monorepo.md)
+- 하네스 12원칙 평가 기준: [docs/architecture/harness-principles.md](docs/architecture/harness-principles.md)
 - 디버그 브리지와 MCP: [docs/architecture/debug-bridge-mcp.md](docs/architecture/debug-bridge-mcp.md)
 - 워크스페이스 계약: [docs/architecture/workspace-contract.md](docs/architecture/workspace-contract.md)
 - 명명 규칙: [docs/conventions/naming.md](docs/conventions/naming.md)
