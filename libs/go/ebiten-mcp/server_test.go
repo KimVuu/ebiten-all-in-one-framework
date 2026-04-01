@@ -37,7 +37,7 @@ func TestToolHandlersCallExpectedBridgeEndpoints(t *testing.T) {
 		case "/debug/ui/issues":
 			_, _ = writer.Write([]byte(`{"issueSummary":{"total":2,"errors":1,"warnings":1,"info":0,"invalidNodes":2},"issues":[{"nodeId":"hero-title","severity":"error","code":"out_of_parent","message":"node extends beyond parent bounds"}],"nextCursor":"1","total":2}`))
 		case "/debug/ui/capture":
-			_, _ = writer.Write([]byte(`{"artifactId":"artifact-1","path":"/tmp/ebiten-mcp-artifacts/ui-dom-showcase/artifact-1.png","width":1280,"height":720,"hash":"abc123","overlayEnabled":false,"target":"viewport","capturedRect":{"x":0,"y":0,"width":1280,"height":720}}`))
+			_, _ = writer.Write([]byte(`{"artifactId":"artifact-1","path":"/repo/screenshots/ui-dom-showcase/artifact-1.png","width":1280,"height":720,"hash":"abc123","overlayEnabled":false,"target":"viewport","capturedRect":{"x":0,"y":0,"width":1280,"height":720}}`))
 		case "/debug/commands":
 			_, _ = writer.Write([]byte(`{"commands":[{"name":"pause.toggle"},{"name":"scene.switch"}]}`))
 		case "/debug/commands/scene.switch":

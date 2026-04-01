@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -341,6 +343,8 @@ func TestShowcaseCaptureEndpointReturnsArtifactMetadataAndFile(t *testing.T) {
 	}
 	if path, _ := capturePayload["path"].(string); path == "" {
 		t.Fatalf("expected artifact path in capture payload")
+	} else if !strings.Contains(path, filepath.Join("screenshots", "ui-dom-showcase")) {
+		t.Fatalf("expected artifact path to be stored under screenshots/ui-dom-showcase, got %q", path)
 	}
 	captureEncoded, _ := json.Marshal(capturePayload)
 	if bytes.Contains(captureEncoded, []byte(`iVBOR`)) {

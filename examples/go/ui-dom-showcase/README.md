@@ -65,6 +65,7 @@ go test ./...
 5. `/debug/ui/capture`
 
 `/debug/ui/capture`는 PNG artifact metadata만 반환하고, 이미지 bytes는 inline으로 싣지 않는다.
+생성된 PNG는 저장소 루트의 [screenshots](/Users/kimyechan/Develop/Game/Ebiten/ebtien-aio-framework/screenshots) 아래에 쌓인다.
 
 추가로 `run_command`를 통해 아래 UI 디버그 명령을 사용할 수 있다.
 

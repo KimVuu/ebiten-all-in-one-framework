@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -215,7 +216,7 @@ func captureCompactUIScreenshot(gameID string, layout *uidom.LayoutNode, viewpor
 	hashBytes := sha256.Sum256(encoded)
 	hashValue := hex.EncodeToString(hashBytes[:])
 	artifactID := "capture-" + hashValue[:12]
-	dir := filepath.Join(os.TempDir(), "ebiten-mcp-artifacts", gameID)
+	dir := filepath.Join(repoRootDir(), "screenshots", gameID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return ebitendebug.UICaptureResult{}, ebitendebug.UIArtifact{}, false
 	}
@@ -596,4 +597,15 @@ func resolvePointerTargetAt(layout *uidom.LayoutNode, x, y float64) (debugResolv
 
 func containsPoint(rect uidom.Rect, x, y float64) bool {
 	return x >= rect.X && x <= rect.X+rect.Width && y >= rect.Y && y <= rect.Y+rect.Height
+}
+
+func repoRootDir() string {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		if cwd, err := os.Getwd(); err == nil {
+			return cwd
+		}
+		return "."
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 }
