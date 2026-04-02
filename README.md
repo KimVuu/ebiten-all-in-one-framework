@@ -33,8 +33,11 @@
 - 아키텍처: [docs/architecture/monorepo.md](docs/architecture/monorepo.md)
 - 하네스 12원칙 평가 기준: [docs/architecture/harness-principles.md](docs/architecture/harness-principles.md)
 - 디버그 브리지와 MCP: [docs/architecture/debug-bridge-mcp.md](docs/architecture/debug-bridge-mcp.md)
+- Ebiten UI 아키텍처: [docs/architecture/ebiten-ui-architecture.md](docs/architecture/ebiten-ui-architecture.md)
+- Ebiten UI 로드맵: [docs/architecture/ebiten-ui-roadmap.md](docs/architecture/ebiten-ui-roadmap.md)
 - 워크스페이스 계약: [docs/architecture/workspace-contract.md](docs/architecture/workspace-contract.md)
 - 명명 규칙: [docs/conventions/naming.md](docs/conventions/naming.md)
+- Ebiten UI 스타일: [docs/conventions/ebiten-ui-style.md](docs/conventions/ebiten-ui-style.md)
 - 에이전트 허브: [AGENTS.md](AGENTS.md)
 
 ## 현재 라이브러리

@@ -146,6 +146,9 @@ _ = layout
 
 - 통합 쇼케이스: [examples/go/ebiten-ui-showcase/README.md](../../../examples/go/ebiten-ui-showcase/README.md)
 - 재사용 가능한 UI 디버그 어댑터: [../ebiten-ui-debug/README.md](../ebiten-ui-debug/README.md)
+- 아키텍처 기준: [../../../docs/architecture/ebiten-ui-architecture.md](../../../docs/architecture/ebiten-ui-architecture.md)
+- 로드맵: [../../../docs/architecture/ebiten-ui-roadmap.md](../../../docs/architecture/ebiten-ui-roadmap.md)
+- 스타일 규칙: [../../../docs/conventions/ebiten-ui-style.md](../../../docs/conventions/ebiten-ui-style.md)
 
 ## 현재 제약
 
