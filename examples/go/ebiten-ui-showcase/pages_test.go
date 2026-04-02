@@ -12,6 +12,12 @@ func TestShowcaseRegistryContainsGroupsAndLeafPages(t *testing.T) {
 	if len(registry.Routes) == 0 {
 		t.Fatalf("expected showcase routes")
 	}
+	if _, ok := registry.Pages["reactive/ref-and-computed"]; !ok {
+		t.Fatalf("expected reactive ref-and-computed page")
+	}
+	if _, ok := registry.Pages["reactive/controlled-inputs"]; !ok {
+		t.Fatalf("expected reactive controlled-inputs page")
+	}
 	if _, ok := registry.Pages["inputs/input-field"]; !ok {
 		t.Fatalf("expected input-field page")
 	}
@@ -28,7 +34,17 @@ func TestBuildShowcaseDOMBuildsSidebarAndDetailForCurrentPage(t *testing.T) {
 		CurrentPageID: "inputs/input-field",
 	}, nil, nil, nil)
 
-	for _, id := range []string{"showcase-root", "showcase-sidebar", "showcase-detail", "page-title", "page-code-block"} {
+	for _, id := range []string{
+		"showcase-root",
+		"showcase-sidebar",
+		"showcase-detail",
+		"page-title",
+		"page-code-block",
+		"page-live-state",
+		"theme-preset-default",
+		"theme-preset-forest",
+		"theme-preset-ember",
+	} {
 		if _, ok := dom.FindByID(id); !ok {
 			t.Fatalf("expected node %q", id)
 		}
@@ -38,6 +54,23 @@ func TestBuildShowcaseDOMBuildsSidebarAndDetailForCurrentPage(t *testing.T) {
 	}
 	if inputNode, ok := dom.FindByID("name-input"); !ok || inputNode == nil {
 		t.Fatalf("expected current page demo node")
+	}
+}
+
+func TestBuildShowcaseDOMBuildsReactivePage(t *testing.T) {
+	dom := buildShowcaseDOMWithState(showcaseLayoutState{
+		CurrentPageID: "reactive/ref-and-computed",
+	}, nil, nil, nil)
+
+	title, ok := dom.FindByID("page-title")
+	if !ok || title.Text != "Ref And Computed" {
+		t.Fatalf("expected reactive page title, got %#v", title)
+	}
+	if _, ok := dom.FindByID("reactive-ref-name"); !ok {
+		t.Fatalf("expected reactive demo input")
+	}
+	if _, ok := dom.FindByID("reactive-derived-summary"); !ok {
+		t.Fatalf("expected reactive derived summary")
 	}
 }
 
@@ -59,6 +92,9 @@ func TestShowcaseGameTracksCurrentPageInDebugState(t *testing.T) {
 	if ui.Root.Props["currentPageID"] == "" {
 		t.Fatalf("expected currentPageID in root props")
 	}
+	if ui.Root.Props["themePreset"] == "" {
+		t.Fatalf("expected themePreset in root props")
+	}
 }
 
 func TestShowcaseSidebarClickNavigatesPages(t *testing.T) {
@@ -71,7 +107,7 @@ func TestShowcaseSidebarClickNavigatesPages(t *testing.T) {
 	}
 	before := game.currentPageID()
 	result := game.debugBridgeLikeCommand("ui_click", map[string]any{
-		"node_id": "nav-item-inputs-input-field",
+		"node_id": "nav-item-inputs",
 	})
 	if !result.Success {
 		t.Fatalf("expected click command to succeed: %#v", result)

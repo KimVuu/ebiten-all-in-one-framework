@@ -1,7 +1,7 @@
 package main
 
 import (
-	"image/color"
+	"fmt"
 	"strings"
 
 	ebitenui "github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui"
@@ -30,6 +30,8 @@ func buildShowcaseDOMWithState(state showcaseLayoutState, callbacks *showcaseCal
 		currentPage = registry.Pages[currentPageID]
 	}
 
+	preset := showcaseThemePresetByID(initialShowcaseThemePreset(state.ThemePreset))
+
 	root := ebitenui.Div(ebitenui.Props{
 		ID: "showcase-root",
 		Semantic: ebitenui.SemanticSpec{
@@ -53,10 +55,10 @@ func buildShowcaseDOMWithState(state showcaseLayoutState, callbacks *showcaseCal
 			Direction:       ebitenui.Column,
 			Padding:         ebitenui.All(24),
 			Gap:             16,
-			BackgroundColor: color.RGBA{R: 13, G: 18, B: 27, A: 255},
+			BackgroundColor: preset.Chrome.RootBackground,
 		},
 	},
-		buildShowcaseHeader(currentPage),
+		buildShowcaseHeader(currentPage, preset, callbacks),
 		ebitenui.Main(ebitenui.Props{
 			ID: "showcase-main",
 			Semantic: ebitenui.SemanticSpec{
@@ -83,9 +85,9 @@ func buildShowcaseDOMWithState(state showcaseLayoutState, callbacks *showcaseCal
 				ID:              "showcase-page-screen",
 				SidebarWidth:    320,
 				Gap:             16,
-				BackgroundColor: color.RGBA{R: 13, G: 18, B: 27, A: 255},
-				Sidebar:         buildShowcaseSidebar(router, registry, currentPageID, state.SidebarScroll, callbacks),
-				Content:         buildShowcaseDetail(router, registry, currentPage, currentPageID, state.DetailScroll, callbacks, runtime, bindings),
+				BackgroundColor: preset.Chrome.RootBackground,
+				Sidebar:         buildShowcaseSidebar(router, currentPageID, state.SidebarScroll, callbacks, preset.Chrome),
+				Content:         buildShowcaseDetail(router, registry, currentPage, currentPageID, state.DetailScroll, callbacks, runtime, bindings, preset),
 			}),
 		),
 	)
@@ -100,12 +102,8 @@ func initialShowcasePageID(pageID string) string {
 	return pageID
 }
 
-func buildShowcaseHeader(page ShowcasePageSpec) *ebitenui.Node {
-	panel := color.RGBA{R: 24, G: 31, B: 43, A: 255}
-	stroke := color.RGBA{R: 88, G: 110, B: 140, A: 255}
-	textStrong := color.RGBA{R: 242, G: 246, B: 252, A: 255}
-	textMuted := color.RGBA{R: 178, G: 190, B: 207, A: 255}
-	accent := color.RGBA{R: 80, G: 160, B: 255, A: 255}
+func buildShowcaseHeader(page ShowcasePageSpec, preset showcaseThemePreset, callbacks *showcaseCallbacks) *ebitenui.Node {
+	chrome := preset.Chrome
 
 	return ebitenui.Header(ebitenui.Props{
 		ID: "showcase-header",
@@ -124,8 +122,8 @@ func buildShowcaseHeader(page ShowcasePageSpec) *ebitenui.Node {
 			Direction:       ebitenui.Row,
 			Padding:         ebitenui.All(16),
 			Gap:             12,
-			BackgroundColor: panel,
-			BorderColor:     stroke,
+			BackgroundColor: chrome.PanelBackground,
+			BorderColor:     chrome.PanelBorder,
 			BorderWidth:     1,
 		},
 	},
@@ -134,34 +132,104 @@ func buildShowcaseHeader(page ShowcasePageSpec) *ebitenui.Node {
 			Style: ebitenui.Style{
 				Width:     ebitenui.Fill(),
 				Direction: ebitenui.Column,
-				Gap:       6,
+				Gap:       8,
 			},
 		},
 			ebitenui.Text("ebiten-ui showcase", ebitenui.Props{
 				ID:    "hero-title",
-				Style: ebitenui.Style{Color: textStrong},
+				Style: ebitenui.Style{Color: chrome.TextStrong},
 			}),
-			ebitenui.Text("Page-based reference for components, prefabs, and UI patterns.", ebitenui.Props{
+			ebitenui.Text("Page-based reference for components, prefabs, theme presets, and reactive state patterns.", ebitenui.Props{
 				ID:    "hero-subtitle",
-				Style: ebitenui.Style{Color: textMuted},
+				Style: ebitenui.Style{Color: chrome.TextMuted},
 			}),
+			buildThemePresetSwitcher(preset, callbacks),
 		),
 		ebitenui.Span(ebitenui.Props{
 			ID: "header-badge",
 			Style: ebitenui.Style{
 				Padding:         ebitenui.All(10),
-				BackgroundColor: accent,
+				BackgroundColor: chrome.Accent,
 			},
 		},
 			ebitenui.Text(page.Title, ebitenui.Props{
 				ID:    "badge-text",
-				Style: ebitenui.Style{Color: color.RGBA{R: 8, G: 12, B: 20, A: 255}},
+				Style: ebitenui.Style{Color: chrome.BadgeText},
 			}),
 		),
 	)
 }
 
-func buildShowcaseSidebar(router *ebitenui.PageRouter, registry ShowcasePageRegistry, currentPageID string, scrollOffset float64, callbacks *showcaseCallbacks) *ebitenui.Node {
+func buildThemePresetSwitcher(preset showcaseThemePreset, callbacks *showcaseCallbacks) *ebitenui.Node {
+	chrome := preset.Chrome
+	buttons := make([]*ebitenui.Node, 0, len(showcaseThemePresets()))
+	for _, option := range showcaseThemePresets() {
+		option := option
+		active := option.ID == preset.ID
+		background := chrome.PanelBackground
+		textColor := chrome.TextMuted
+		border := chrome.PanelBorder
+		if active {
+			background = chrome.Accent
+			textColor = chrome.BadgeText
+			border = chrome.AccentSoft
+		}
+		buttons = append(buttons, ebitenui.InteractiveButton(ebitenui.Props{
+			ID: "theme-preset-" + option.ID,
+			Semantic: ebitenui.SemanticSpec{
+				Screen:  "ebiten-ui-showcase",
+				Element: "theme-preset-" + option.ID,
+				Role:    "action",
+				Slot:    "theme-preset",
+			},
+			State: ebitenui.InteractionState{
+				Selected: active,
+			},
+			Handlers: ebitenui.EventHandlers{
+				OnClick: func(ctx ebitenui.EventContext) {
+					if callbacks != nil && callbacks.OnThemePresetChange != nil {
+						callbacks.OnThemePresetChange(option.ID)
+					}
+				},
+			},
+			Style: ebitenui.Style{
+				Padding:         ebitenui.Insets{Top: 8, Right: 12, Bottom: 8, Left: 12},
+				BackgroundColor: background,
+				BorderColor:     border,
+				BorderWidth:     1,
+			},
+		},
+			ebitenui.Text(option.Title, ebitenui.Props{
+				ID:    "theme-preset-label-" + option.ID,
+				Style: ebitenui.Style{Color: textColor},
+			}),
+		))
+	}
+
+	return ebitenui.Div(ebitenui.Props{
+		ID: "theme-preset-switcher",
+		Style: ebitenui.Style{
+			Width:     ebitenui.Fill(),
+			Direction: ebitenui.Column,
+			Gap:       8,
+		},
+	},
+		ebitenui.Text("Theme Presets", ebitenui.Props{
+			ID:    "theme-preset-title",
+			Style: ebitenui.Style{Color: chrome.TextMuted},
+		}),
+		ebitenui.Div(ebitenui.Props{
+			ID: "theme-preset-buttons",
+			Style: ebitenui.Style{
+				Width:     ebitenui.Fill(),
+				Direction: ebitenui.Row,
+				Gap:       10,
+			},
+		}, buttons...),
+	)
+}
+
+func buildShowcaseSidebar(router *ebitenui.PageRouter, currentPageID string, scrollOffset float64, callbacks *showcaseCallbacks, chrome showcaseChrome) *ebitenui.Node {
 	scrollHandlers := ebitenui.EventHandlers{}
 	if callbacks != nil && callbacks.OnSidebarScrollChange != nil {
 		scrollHandlers.OnScroll = func(ctx ebitenui.EventContext) {
@@ -176,16 +244,16 @@ func buildShowcaseSidebar(router *ebitenui.PageRouter, registry ShowcasePageRegi
 	children := []*ebitenui.Node{
 		ebitenui.Text("Pages", ebitenui.Props{
 			ID:    "showcase-sidebar-title",
-			Style: showcaseGroupTitleStyle(),
+			Style: showcaseGroupTitleStyleForChrome(chrome),
 		}),
-		ebitenui.TextBlock("Browse groups on the left, then inspect usage, code, and live demos on the right.", ebitenui.Props{
+		ebitenui.TextBlock("Browse groups on the left, then inspect usage, code, live demo state, and theme-aware variants on the right.", ebitenui.Props{
 			ID:    "showcase-sidebar-copy",
-			Style: showcaseGroupCopyStyle(),
+			Style: showcaseGroupCopyStyleForChrome(chrome),
 		}),
 	}
 
 	for _, route := range router.VisibleNavTree() {
-		children = append(children, buildNavRoute(route, currentPageID, callbacks, 0))
+		children = append(children, buildNavRoute(route, currentPageID, callbacks, 0, chrome))
 	}
 
 	return ebitenui.Div(ebitenui.Props{
@@ -203,7 +271,7 @@ func buildShowcaseSidebar(router *ebitenui.PageRouter, registry ShowcasePageRegi
 				Height: ebitenui.Fill(),
 			},
 		},
-		Style: showcaseGroupStyle(),
+		Style: showcaseGroupStyleForChrome(chrome),
 	},
 		ebitenui.ScrollView(ebitenui.Props{
 			ID: "showcase-sidebar-scroll",
@@ -230,27 +298,25 @@ func buildShowcaseSidebar(router *ebitenui.PageRouter, registry ShowcasePageRegi
 				Direction: ebitenui.Column,
 				Gap:       10,
 			},
-			Scroll: ebitenui.ScrollState{
-				OffsetY: scrollOffset,
-			},
+			Scroll:   ebitenui.ScrollState{OffsetY: scrollOffset},
 			Handlers: scrollHandlers,
 		}, children...),
 	)
 }
 
-func buildNavRoute(route ebitenui.PageRoute, currentPageID string, callbacks *showcaseCallbacks, depth int) *ebitenui.Node {
+func buildNavRoute(route ebitenui.PageRoute, currentPageID string, callbacks *showcaseCallbacks, depth int, chrome showcaseChrome) *ebitenui.Node {
 	active := route.ID == currentPageID
 	expanded := routeContainsPage(route, currentPageID)
 	paddingLeft := 12 + (depth * 18)
 
-	buttonBackground := color.RGBA{R: 18, G: 24, B: 34, A: 255}
-	buttonText := color.RGBA{R: 194, G: 204, B: 219, A: 255}
+	buttonBackground := chrome.PanelBackground
+	buttonText := chrome.TextMuted
 	if expanded {
-		buttonBackground = color.RGBA{R: 26, G: 35, B: 49, A: 255}
+		buttonBackground = chrome.CodeBackground
 	}
 	if active {
-		buttonBackground = color.RGBA{R: 80, G: 160, B: 255, A: 255}
-		buttonText = color.RGBA{R: 12, G: 18, B: 28, A: 255}
+		buttonBackground = chrome.Accent
+		buttonText = chrome.BadgeText
 	}
 
 	item := ebitenui.InteractiveButton(ebitenui.Props{
@@ -277,7 +343,7 @@ func buildNavRoute(route ebitenui.PageRoute, currentPageID string, callbacks *sh
 			Padding:         ebitenui.Insets{Top: 10, Right: 12, Bottom: 10, Left: float64(paddingLeft)},
 			Gap:             8,
 			BackgroundColor: buttonBackground,
-			BorderColor:     color.RGBA{R: 74, G: 92, B: 120, A: 255},
+			BorderColor:     chrome.PanelBorder,
 			BorderWidth:     1,
 		},
 	},
@@ -293,10 +359,14 @@ func buildNavRoute(route ebitenui.PageRoute, currentPageID string, callbacks *sh
 		return item
 	}
 
+	if !expanded && !active {
+		return item
+	}
+
 	children := make([]*ebitenui.Node, 0, len(route.Children)+1)
 	children = append(children, item)
 	for _, child := range route.Children {
-		children = append(children, buildNavRoute(child, currentPageID, callbacks, depth+1))
+		children = append(children, buildNavRoute(child, currentPageID, callbacks, depth+1, chrome))
 	}
 
 	return ebitenui.Div(ebitenui.Props{
@@ -309,7 +379,7 @@ func buildNavRoute(route ebitenui.PageRoute, currentPageID string, callbacks *sh
 	}, children...)
 }
 
-func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegistry, page ShowcasePageSpec, currentPageID string, scrollOffset float64, callbacks *showcaseCallbacks, runtime *ebitenui.Runtime, bindings *showcaseBindings) *ebitenui.Node {
+func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegistry, page ShowcasePageSpec, currentPageID string, scrollOffset float64, callbacks *showcaseCallbacks, runtime *ebitenui.Runtime, bindings *showcaseBindings, preset showcaseThemePreset) *ebitenui.Node {
 	scrollHandlers := ebitenui.EventHandlers{}
 	if callbacks != nil && callbacks.OnDetailScrollChange != nil {
 		scrollHandlers.OnScroll = func(ctx ebitenui.EventContext) {
@@ -326,6 +396,9 @@ func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegis
 		Registry:      registry,
 		CurrentPageID: currentPageID,
 		Bindings:      bindings,
+		ThemePresetID: preset.ID,
+		Theme:         preset.Theme,
+		Chrome:        preset.Chrome,
 	}
 	demo := page.DemoBuilder
 	var demoNode *ebitenui.Node
@@ -335,7 +408,7 @@ func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegis
 	if demoNode == nil {
 		demoNode = ebitenui.Text("No demo available for this page yet.", ebitenui.Props{
 			ID:    "page-demo-empty",
-			Style: showcaseGroupCopyStyle(),
+			Style: showcaseGroupCopyStyleForChrome(preset.Chrome),
 		})
 	}
 
@@ -356,7 +429,7 @@ func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegis
 				Height: ebitenui.Fill(),
 			},
 		},
-		Style: showcaseGroupStyle(),
+		Style: showcaseGroupStyleForChrome(preset.Chrome),
 	},
 		ebitenui.ScrollView(ebitenui.Props{
 			ID: "showcase-detail-scroll",
@@ -396,69 +469,147 @@ func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegis
 			},
 				ebitenui.Div(ebitenui.Props{
 					ID:    "page-summary",
-					Style: detailSectionStyle(),
+					Style: detailSectionStyleForChrome(preset.Chrome),
 				},
 					ebitenui.Text(breadcrumbLabel, ebitenui.Props{
 						ID: "page-breadcrumb",
 						Style: ebitenui.Style{
-							Color: color.RGBA{R: 80, G: 160, B: 255, A: 255},
+							Color: preset.Chrome.Accent,
 						},
 					}),
 					ebitenui.Text(page.Title, ebitenui.Props{
 						ID:    "page-title",
-						Style: detailTitleStyle(),
+						Style: detailTitleStyleForChrome(preset.Chrome),
 					}),
 					ebitenui.TextBlock(page.Description, ebitenui.Props{
 						ID:    "page-description",
-						Style: showcaseGroupCopyStyle(),
+						Style: showcaseGroupCopyStyleForChrome(preset.Chrome),
 					}),
 				),
 				ebitenui.Div(ebitenui.Props{
 					ID:    "page-demo",
-					Style: detailSectionStyle(),
+					Style: detailSectionStyleForChrome(preset.Chrome),
 				},
 					ebitenui.Text("Live Demo", ebitenui.Props{
 						ID:    "page-demo-title",
-						Style: detailTitleStyle(),
+						Style: detailTitleStyleForChrome(preset.Chrome),
 					}),
 					demoNode,
 				),
+				buildShowcaseLiveState(currentPageID, bindings, preset),
 				ebitenui.Div(ebitenui.Props{
 					ID:    "page-usage",
-					Style: detailSectionStyle(),
+					Style: detailSectionStyleForChrome(preset.Chrome),
 				},
 					ebitenui.Text("How To Use", ebitenui.Props{
 						ID:    "page-usage-title",
-						Style: detailTitleStyle(),
+						Style: detailTitleStyleForChrome(preset.Chrome),
 					}),
 					ebitenui.TextBlock(page.UsageNotes, ebitenui.Props{
 						ID:    "page-usage-copy",
-						Style: showcaseGroupCopyStyle(),
+						Style: showcaseGroupCopyStyleForChrome(preset.Chrome),
 					}),
 				),
 				ebitenui.Div(ebitenui.Props{
 					ID:    "page-code",
-					Style: detailSectionStyle(),
+					Style: detailSectionStyleForChrome(preset.Chrome),
 				},
 					ebitenui.Text("Code Example", ebitenui.Props{
 						ID:    "page-code-title",
-						Style: detailTitleStyle(),
+						Style: detailTitleStyleForChrome(preset.Chrome),
 					}),
 					ebitenui.TextBlock(page.CodeExample, ebitenui.Props{
 						ID: "page-code-block",
 						Style: ebitenui.Style{
 							Width:           ebitenui.Fill(),
 							Padding:         ebitenui.All(14),
-							Color:           color.RGBA{R: 213, G: 223, B: 238, A: 255},
+							Color:           preset.Chrome.CodeText,
 							LineHeight:      16,
-							BackgroundColor: color.RGBA{R: 17, G: 22, B: 31, A: 255},
-							BorderColor:     color.RGBA{R: 63, G: 78, B: 101, A: 255},
+							BackgroundColor: preset.Chrome.CodeBackground,
+							BorderColor:     preset.Chrome.CodeBorder,
 							BorderWidth:     1,
 						},
 					}),
 				),
 			),
 		),
+	)
+}
+
+func buildShowcaseLiveState(currentPageID string, bindings *showcaseBindings, preset showcaseThemePreset) *ebitenui.Node {
+	name := ebitenui.NewComputed(func() string {
+		return bindings.NameInput.Get()
+	})
+	resolution := ebitenui.NewComputed(func() string {
+		switch bindings.Resolution.Get() {
+		case "resolution-1080":
+			return "1920x1080"
+		default:
+			return "1280x720"
+		}
+	})
+	hardcore := ebitenui.NewComputed(func() string {
+		if bindings.Hardcore.Get() {
+			return "enabled"
+		}
+		return "disabled"
+	})
+	bioLines := ebitenui.NewComputed(func() string {
+		count := strings.Count(bindings.Bio.Get(), "\n") + 1
+		return fmt.Sprintf("%d lines", count)
+	})
+	summary := ebitenui.NewComputed(func() string {
+		return fmt.Sprintf("%s · %s · music %.0f%%", name.Get(), resolution.Get(), bindings.MusicVolume.Get())
+	})
+
+	return ebitenui.Div(ebitenui.Props{
+		ID:    "page-live-state",
+		Style: detailSectionStyleForChrome(preset.Chrome),
+	},
+		ebitenui.Text("Live State", ebitenui.Props{
+			ID:    "page-live-state-title",
+			Style: detailTitleStyleForChrome(preset.Chrome),
+		}),
+		ebitenui.TextBlock("The showcase now exposes the current controlled values so you can see theme and reactive updates without inspecting code first.", ebitenui.Props{
+			ID:    "page-live-state-copy",
+			Style: showcaseGroupCopyStyleForChrome(preset.Chrome),
+		}),
+		liveStateRow("live-state-current-page", "Current page", currentPageID, preset),
+		liveStateRow("live-state-theme-preset", "Theme preset", preset.Title, preset),
+		liveStateRow("live-state-name", "Player name", name.Get(), preset),
+		liveStateRow("live-state-resolution", "Resolution", resolution.Get(), preset),
+		liveStateRow("live-state-hardcore", "Hardcore", hardcore.Get(), preset),
+		liveStateRow("live-state-bio-lines", "Bio", bioLines.Get(), preset),
+		liveStateRow("live-state-volume", "Music volume", fmt.Sprintf("%.0f%%", bindings.MusicVolume.Get()), preset),
+		liveStateRow("live-state-derived-summary", "Derived summary", summary.Get(), preset),
+	)
+}
+
+func liveStateRow(id, label, value string, preset showcaseThemePreset) *ebitenui.Node {
+	return ebitenui.Div(ebitenui.Props{
+		ID: id,
+		Style: ebitenui.Style{
+			Width:           ebitenui.Fill(),
+			Direction:       ebitenui.Row,
+			Padding:         ebitenui.Insets{Top: 10, Right: 12, Bottom: 10, Left: 12},
+			Gap:             10,
+			BackgroundColor: preset.Chrome.CodeBackground,
+			BorderColor:     preset.Chrome.CodeBorder,
+			BorderWidth:     1,
+		},
+	},
+		ebitenui.Text(label, ebitenui.Props{
+			ID:    id + "-label",
+			Style: ebitenui.Style{Color: preset.Chrome.TextMuted},
+		}),
+		ebitenui.Spacer(ebitenui.Props{
+			ID:    id + "-spacer",
+			Style: ebitenui.Style{Width: ebitenui.Fill(), Height: ebitenui.Px(1)},
+		}),
+		ebitenui.Text(value, ebitenui.Props{
+			ID:    id + "-value",
+			Style: ebitenui.Style{Color: preset.Chrome.TextStrong},
+		}),
 	)
 }
 

@@ -7,7 +7,7 @@
 - 설계 문서와 작업 규칙을 먼저 고정했다.
 - 현재 Go 라이브러리는 `libs/go/ebiten-ui`, `libs/go/ebiten-ui-debug`, `libs/go/ebiten-debug`, `libs/go/ebiten-mcp`까지 정리되어 있다.
 - `ebiten-ui`는 선언형 UI, 입력 런타임, 제약 레이아웃, 프리셋을 담당한다.
-- `ebiten-ui-showcase`는 이제 좌측 navigation + 우측 detail의 문서형 다중 페이지 예제로 구성된다.
+- `ebiten-ui-showcase`는 이제 좌측 navigation + 우측 detail의 문서형 다중 페이지 예제로 구성되며, theme preset switcher와 live state 패널을 포함한다.
 - `ebiten-ui-debug`는 UI snapshot, compact inspect/query, overlay, capture, debug input queue를 재사용 가능한 어댑터로 제공한다.
 - 모노레포의 최상위 인터페이스는 `libs`, `examples`, `projects`, `tools`, `scripts`, `docs` 여섯 가지로 제한한다.
 - `AGENTS.md`는 에이전트 작업 허브이고, 상세 규칙은 `docs/agents/*`에서 관리한다.

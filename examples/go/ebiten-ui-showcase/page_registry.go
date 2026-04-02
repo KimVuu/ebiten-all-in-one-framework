@@ -11,6 +11,7 @@ import (
 
 type showcaseLayoutState struct {
 	CurrentPageID string
+	ThemePreset   string
 	SidebarScroll float64
 	DetailScroll  float64
 }
@@ -26,6 +27,7 @@ type showcaseBindings struct {
 
 type showcaseCallbacks struct {
 	OnNavigate            func(string)
+	OnThemePresetChange   func(string)
 	OnSidebarScrollChange func(float64)
 	OnDetailScrollChange  func(float64)
 }
@@ -50,6 +52,9 @@ type ShowcaseDemoContext struct {
 	Registry      ShowcasePageRegistry
 	CurrentPageID string
 	Bindings      *showcaseBindings
+	ThemePresetID string
+	Theme         ebitenui.Theme
+	Chrome        showcaseChrome
 }
 
 func buildShowcasePageRegistry() ShowcasePageRegistry {
@@ -61,23 +66,23 @@ func buildShowcasePageRegistry() ShowcasePageRegistry {
 	add(ShowcasePageSpec{
 		ID:          "overview",
 		Title:       "Overview",
-		Description: "Page-based showcase for ebiten-ui. Use the left navigation to switch between foundations, inputs, layout helpers, overlays, data widgets, status controls, and prefab UI.",
-		UsageNotes:  "Start with a group page for broad context, then move into a leaf page when you want the focused demo and code sample.",
+		Description: "Page-based showcase for ebiten-ui. Use the left navigation to switch between foundations, reactive state, inputs, layout helpers, overlays, data widgets, status controls, and prefab UI.",
+		UsageNotes:  "Start with a group page for broad context, then move into a leaf page when you want the focused demo, live state, and code sample.",
 		CodeExample: "router := ebitenui.NewPageRouter(ebitenui.PageRouterConfig{ /* routes */ })\ncurrent := router.CurrentPageID()\nroot := ebitenui.PageScreen(ebitenui.PageScreenConfig{Sidebar: nav, Content: detail})",
 		DemoBuilder: func(ctx ShowcaseDemoContext) *ebitenui.Node {
-			textStrong := color.RGBA{R: 242, G: 246, B: 252, A: 255}
-			textMuted := color.RGBA{R: 178, G: 190, B: 207, A: 255}
+			textStrong := ctx.Chrome.TextStrong
+			textMuted := ctx.Chrome.TextMuted
 			return ebitenui.Div(ebitenui.Props{
 				ID:    "overview-demo",
-				Style: detailSectionStyle(),
+				Style: detailSectionStyleForChrome(ctx.Chrome),
 			},
-				ebitenui.Text("Learning Paths", ebitenui.Props{ID: "overview-demo-title", Style: detailTitleStyle()}),
+				ebitenui.Text("Learning Paths", ebitenui.Props{ID: "overview-demo-title", Style: detailTitleStyleForChrome(ctx.Chrome)}),
 				ebitenui.Div(ebitenui.Props{
 					ID:    "overview-demo-cards",
 					Style: ebitenui.Style{Width: ebitenui.Fill(), Direction: ebitenui.Row, Gap: 12},
 				},
-					infoCard("overview-card-pages", color.RGBA{R: 80, G: 160, B: 255, A: 255}, textStrong, textMuted, "Pages", "Every major UI concept now has a dedicated page."),
-					infoCard("overview-card-code", color.RGBA{R: 72, G: 211, B: 161, A: 255}, textStrong, textMuted, "Code", "Each page shows canonical usage notes and code."),
+					infoCard("overview-card-pages", ctx.Chrome.Accent, textStrong, textMuted, "Pages", "Every major UI concept now has a dedicated page."),
+					infoCard("overview-card-reactive", ctx.Chrome.AccentSoft, textStrong, textMuted, "Reactive", "Bindings and derived values are visible in the live state panel."),
 					infoCard("overview-card-debug", color.RGBA{R: 255, G: 180, B: 72, A: 255}, textStrong, textMuted, "Debug", "MCP inspect/capture follows the current page state."),
 				),
 			)
@@ -92,8 +97,8 @@ func buildShowcasePageRegistry() ShowcasePageRegistry {
 			UsageNotes:  "Use this group page to understand the category, then select a leaf page on the left for a focused demo and code sample.",
 			CodeExample: fmt.Sprintf("router.Navigate(%q)\nchildren := router.ChildrenOf(%q)\nbreadcrumb := router.Breadcrumb(%q)", groupID, groupID, groupID),
 			DemoBuilder: func(ctx ShowcaseDemoContext) *ebitenui.Node {
-				textStrong := color.RGBA{R: 242, G: 246, B: 252, A: 255}
-				textMuted := color.RGBA{R: 178, G: 190, B: 207, A: 255}
+				textStrong := ctx.Chrome.TextStrong
+				textMuted := ctx.Chrome.TextMuted
 				children := ctx.Registry.Pages[groupID]
 				_ = children
 				groupCards := make([]*ebitenui.Node, 0)
@@ -103,17 +108,17 @@ func buildShowcasePageRegistry() ShowcasePageRegistry {
 					}
 					for _, child := range route.Children {
 						childSpec := ctx.Registry.Pages[child.ID]
-						groupCards = append(groupCards, infoCard("group-card-"+sanitizeID(child.ID), color.RGBA{R: 80, G: 160, B: 255, A: 255}, textStrong, textMuted, childSpec.Title, childSpec.Description))
+						groupCards = append(groupCards, infoCard("group-card-"+sanitizeID(child.ID), ctx.Chrome.Accent, textStrong, textMuted, childSpec.Title, childSpec.Description))
 					}
 				}
 				if len(groupCards) == 0 {
-					groupCards = append(groupCards, infoCard("group-card-empty", color.RGBA{R: 80, G: 160, B: 255, A: 255}, textStrong, textMuted, title, description))
+					groupCards = append(groupCards, infoCard("group-card-empty", ctx.Chrome.Accent, textStrong, textMuted, title, description))
 				}
 				return ebitenui.Div(ebitenui.Props{
 					ID:    "group-demo-" + sanitizeID(groupID),
-					Style: detailSectionStyle(),
+					Style: detailSectionStyleForChrome(ctx.Chrome),
 				},
-					ebitenui.Text(title+" Pages", ebitenui.Props{ID: "group-demo-title-" + sanitizeID(groupID), Style: detailTitleStyle()}),
+					ebitenui.Text(title+" Pages", ebitenui.Props{ID: "group-demo-title-" + sanitizeID(groupID), Style: detailTitleStyleForChrome(ctx.Chrome)}),
 					ebitenui.Div(ebitenui.Props{
 						ID:    "group-demo-cards-" + sanitizeID(groupID),
 						Style: ebitenui.Style{Width: ebitenui.Fill(), Direction: ebitenui.Column, Gap: 12},
@@ -124,6 +129,7 @@ func buildShowcasePageRegistry() ShowcasePageRegistry {
 	}
 
 	add(groupOverview("foundations", "Foundations", "Low-level primitives that everything else in ebiten-ui builds on."))
+	add(groupOverview("reactive", "Reactive", "Binding, derived values, and controlled state patterns for page and project UI."))
 	add(groupOverview("tags", "Tags", "HTML-like tag primitives and the basic DOM vocabulary."))
 	add(groupOverview("inputs", "Inputs", "Stateful, focus-aware interactive form controls."))
 	add(groupOverview("layout", "Layout", "Containers and helpers for arranging UI structures."))
@@ -286,6 +292,7 @@ func buildShowcasePageRegistry() ShowcasePageRegistry {
 	})
 
 	addInputPages(add)
+	addReactivePages(add)
 	addLayoutPages(add)
 	addOverlayPages(add)
 	addDataPages(add)
@@ -295,6 +302,7 @@ func buildShowcasePageRegistry() ShowcasePageRegistry {
 	routes := []ebitenui.PageRoute{
 		{ID: "overview", Title: "Overview"},
 		groupRoute("foundations", "Foundations", "foundations/image", "foundations/text-block", "foundations/spacer", "foundations/stack", "foundations/scroll-view", "foundations/theme"),
+		groupRoute("reactive", "Reactive", "reactive/ref-and-computed", "reactive/controlled-inputs"),
 		groupRoute("tags", "Tags", "tags/basic-tags"),
 		groupRoute("inputs", "Inputs", "inputs/input-field", "inputs/dropdown", "inputs/textarea", "inputs/radio-group", "inputs/stepper"),
 		groupRoute("layout", "Layout", "layout/grid"),
@@ -322,6 +330,7 @@ func addInputPages(add func(ShowcasePageSpec)) {
 			return ebitenui.InputField(ebitenui.InputFieldConfig{
 				ID:           "name-input",
 				Label:        "Player Name",
+				Theme:        &ctx.Theme,
 				ValueBinding: ctx.Bindings.NameInput,
 				Width:        280,
 				State:        ebitenui.InteractionState{Focused: true},
@@ -339,6 +348,7 @@ func addInputPages(add func(ShowcasePageSpec)) {
 			return ebitenui.Dropdown(ebitenui.DropdownConfig{
 				ID:              "resolution-dropdown",
 				Label:           "Resolution",
+				Theme:           &ctx.Theme,
 				SelectedBinding: ctx.Bindings.Resolution,
 				OpenBinding:     ctx.Bindings.ResolutionOpen,
 				Width:           280,
@@ -360,6 +370,7 @@ func addInputPages(add func(ShowcasePageSpec)) {
 			return ebitenui.Textarea(ebitenui.TextareaConfig{
 				ID:           "bio-textarea",
 				Label:        "Profile",
+				Theme:        &ctx.Theme,
 				ValueBinding: ctx.Bindings.Bio,
 				Width:        320,
 				State:        ebitenui.InteractionState{Focused: true},
@@ -392,6 +403,91 @@ func addInputPages(add func(ShowcasePageSpec)) {
 		CodeExample: "ebitenui.Stepper(ebitenui.StepperConfig{\n  ID: \"party-stepper\",\n  Label: \"Party Size\",\n  Min: 1,\n  Max: 4,\n  Value: 3,\n})",
 		DemoBuilder: func(ctx ShowcaseDemoContext) *ebitenui.Node {
 			return ebitenui.Stepper(ebitenui.StepperConfig{ID: "party-stepper", Label: "Party Size", Value: 3, Min: 1, Max: 4, Width: 240})
+		},
+	})
+}
+
+func addReactivePages(add func(ShowcasePageSpec)) {
+	add(ShowcasePageSpec{
+		ID:          "reactive/ref-and-computed",
+		Title:       "Ref And Computed",
+		Group:       "reactive",
+		Description: "Refs hold writable page state, while computed values derive readable summaries without changing the source of truth.",
+		UsageNotes:  "Use refs for project-owned values and computed values for labels, summaries, and status lines that should always stay derived from the same data.",
+		CodeExample: "name := ebitenui.NewRef(\"Kim\")\nvolume := ebitenui.NewRef(65.0)\nsummary := ebitenui.NewComputed(func() string {\n  return fmt.Sprintf(\"%s · %.0f%%\", name.Get(), volume.Get())\n})",
+		DemoBuilder: func(ctx ShowcaseDemoContext) *ebitenui.Node {
+			summary := ebitenui.NewComputed(func() string {
+				return fmt.Sprintf("%s · %s · %.0f%% music", ctx.Bindings.NameInput.Get(), ctx.Bindings.Resolution.Get(), ctx.Bindings.MusicVolume.Get())
+			})
+			return ebitenui.Div(ebitenui.Props{
+				ID:    "reactive-ref-and-computed-demo",
+				Style: detailSectionStyleForChrome(ctx.Chrome),
+			},
+				ebitenui.InputField(ebitenui.InputFieldConfig{
+					ID:           "reactive-ref-name",
+					Label:        "Player Name",
+					Theme:        &ctx.Theme,
+					ValueBinding: ctx.Bindings.NameInput,
+					Width:        260,
+				}),
+				ebitenui.Slider(ebitenui.SliderConfig{
+					ID:           "reactive-ref-volume",
+					Label:        "Music",
+					Theme:        &ctx.Theme,
+					Min:          0,
+					Max:          100,
+					ValueBinding: ctx.Bindings.MusicVolume,
+					Width:        260,
+				}),
+				ebitenui.TextBlock("Computed values are rebuilt from refs every frame and remain read-only in the UI tree.", ebitenui.Props{
+					ID:    "reactive-ref-copy",
+					Style: showcaseGroupCopyStyleForChrome(ctx.Chrome),
+				}),
+				ebitenui.Text(summary.Get(), ebitenui.Props{
+					ID:    "reactive-derived-summary",
+					Style: detailTitleStyleForChrome(ctx.Chrome),
+				}),
+			)
+		},
+	})
+	add(ShowcasePageSpec{
+		ID:          "reactive/controlled-inputs",
+		Title:       "Controlled Inputs",
+		Group:       "reactive",
+		Description: "Controlled inputs let the page state stay authoritative while runtime still handles focus, selection, caret, and interaction details.",
+		UsageNotes:  "Use controlled mode when the same state should be visible in the live panel, other widgets, and save-state code at the same time.",
+		CodeExample: "name := ebitenui.NewRef(\"Kim\")\nopen := ebitenui.NewRef(true)\nselected := ebitenui.NewRef(\"resolution-720\")\nform := ebitenui.Div(...,\n  ebitenui.InputField(ebitenui.InputFieldConfig{ValueBinding: name}),\n  ebitenui.Dropdown(ebitenui.DropdownConfig{SelectedBinding: selected, OpenBinding: open}),\n)",
+		DemoBuilder: func(ctx ShowcaseDemoContext) *ebitenui.Node {
+			return ebitenui.Div(ebitenui.Props{
+				ID:    "reactive-controlled-inputs-demo",
+				Style: detailSectionStyleForChrome(ctx.Chrome),
+			},
+				ebitenui.InputField(ebitenui.InputFieldConfig{
+					ID:           "reactive-controlled-name",
+					Label:        "Player Name",
+					Theme:        &ctx.Theme,
+					ValueBinding: ctx.Bindings.NameInput,
+					Width:        260,
+				}),
+				ebitenui.Dropdown(ebitenui.DropdownConfig{
+					ID:              "reactive-controlled-resolution",
+					Label:           "Resolution",
+					Theme:           &ctx.Theme,
+					SelectedBinding: ctx.Bindings.Resolution,
+					OpenBinding:     ctx.Bindings.ResolutionOpen,
+					Width:           260,
+					Options: []ebitenui.DropdownOption{
+						{ID: "resolution-720", Label: "1280x720"},
+						{ID: "resolution-1080", Label: "1920x1080"},
+					},
+				}),
+				ebitenui.Toggle(ebitenui.ToggleConfig{
+					ID:             "reactive-controlled-hardcore",
+					Label:          "Hardcore Mode",
+					Theme:          &ctx.Theme,
+					CheckedBinding: ctx.Bindings.Hardcore,
+				}),
+			)
 		},
 	})
 }
@@ -485,6 +581,7 @@ func addStatusPages(add func(ShowcasePageSpec)) {
 			return ebitenui.Toggle(ebitenui.ToggleConfig{
 				ID:             "difficulty-toggle",
 				Label:          "Hardcore Mode",
+				Theme:          &ctx.Theme,
 				CheckedBinding: ctx.Bindings.Hardcore,
 			})
 		},
@@ -500,6 +597,7 @@ func addStatusPages(add func(ShowcasePageSpec)) {
 			return ebitenui.Slider(ebitenui.SliderConfig{
 				ID:           "music-slider",
 				Label:        "Music",
+				Theme:        &ctx.Theme,
 				Min:          0,
 				Max:          100,
 				ValueBinding: ctx.Bindings.MusicVolume,

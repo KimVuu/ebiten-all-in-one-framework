@@ -8,8 +8,12 @@
 - 좌측 사이드바 navigation
 - 우측 상세 패널
 - 그룹 페이지와 leaf 페이지
+- 사이드바는 현재 그룹만 펼치는 collapsed navigation 구조
 - 각 페이지별 설명, 실제 데모, 사용법, 코드 예제 문자열
+- 헤더의 global theme preset switcher
+- detail 영역의 live state 패널
 - `foundations/theme` 페이지에서 default theme와 override theme 비교
+- `reactive/*` 페이지에서 `Ref`와 `Computed` 기반 상태 흐름 설명
 - 대표 입력/상태 페이지에서 `Ref` 기반 binding demo 사용
 
 ## 실행
@@ -68,6 +72,7 @@ go test ./...
 5. `/debug/ui/capture`
 
 현재 선택된 페이지 정보는 scene summary와 UI snapshot root props의 `currentPageID`에서도 확인할 수 있다.
+현재 theme preset은 scene summary와 UI snapshot root props의 `themePreset`에서도 확인할 수 있다.
 
 `/debug/ui/capture`는 PNG artifact metadata만 반환하고, 이미지 bytes는 inline으로 싣지 않는다.
 이 예제는 `Config.ScreenshotsDir`를 명시해서 생성된 PNG를 저장소 루트의 [screenshots](/Users/kimyechan/Develop/Game/Ebiten/ebtien-aio-framework/screenshots) 아래에 고정 저장한다.

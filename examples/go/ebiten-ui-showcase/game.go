@@ -31,6 +31,7 @@ type game struct {
 	lastInput      ebitenui.InputSnapshot
 	sidebarScroll  float64
 	detailScroll   float64
+	themePreset    string
 	overlayEnabled bool
 
 	registry    ShowcasePageRegistry
@@ -38,6 +39,15 @@ type game struct {
 	bindings    *showcaseBindings
 	uiDebug     *ebitenuidebug.Adapter
 	debugBridge *ebitendebug.Bridge
+}
+
+type showcaseBindingSnapshot struct {
+	NameInput      string
+	Resolution     string
+	ResolutionOpen bool
+	Bio            string
+	Hardcore       bool
+	MusicVolume    float64
 }
 
 func newGame(debugMode bool) *game {
@@ -52,6 +62,7 @@ func newGame(debugMode bool) *game {
 		height:         720,
 		debugEnabled:   debugMode,
 		overlayEnabled: debugMode,
+		themePreset:    "default",
 		registry:       registry,
 		router:         router,
 		bindings:       newShowcaseBindings(),
@@ -109,12 +120,14 @@ func (g *game) step(input ebitenui.InputSnapshot) error {
 
 	state := showcaseLayoutState{
 		CurrentPageID: g.router.CurrentPageID(),
+		ThemePreset:   g.themePreset,
 		SidebarScroll: g.sidebarScroll,
 		DetailScroll:  g.detailScroll,
 	}
 
 	dom := buildShowcaseDOMWithState(state, nil, g.runtime, g.bindings)
 	layout := dom.Layout(viewport)
+	bindingBefore := g.bindingSnapshot()
 	input = g.uiDebug.ApplyQueuedInput(frame, dom, g.runtime, layout, input)
 	input = g.applyHostKeyboardInput(dom, layout, input)
 
@@ -122,6 +135,9 @@ func (g *game) step(input ebitenui.InputSnapshot) error {
 	callbacks := &showcaseCallbacks{
 		OnNavigate: func(pageID string) {
 			nextState.CurrentPageID = pageID
+		},
+		OnThemePresetChange: func(themePreset string) {
+			nextState.ThemePreset = themePreset
 		},
 		OnSidebarScrollChange: func(offset float64) {
 			nextState.SidebarScroll = offset
@@ -147,13 +163,16 @@ func (g *game) step(input ebitenui.InputSnapshot) error {
 		nextState.DetailScroll = 0
 	}
 
-	if pageChanged || nextState.SidebarScroll != state.SidebarScroll || nextState.DetailScroll != state.DetailScroll {
+	bindingsChanged := g.bindingSnapshot() != bindingBefore
+	scrollChanged := nextState.SidebarScroll != state.SidebarScroll || nextState.DetailScroll != state.DetailScroll
+	if pageChanged || scrollChanged || bindingsChanged {
 		dom = buildShowcaseDOMWithState(nextState, callbacks, g.runtime, g.bindings)
 		g.runtime.Update(dom, viewport, stabilizeShowcaseInput(input))
 	}
 
 	g.sidebarScroll = nextState.SidebarScroll
 	g.detailScroll = nextState.DetailScroll
+	g.themePreset = initialShowcaseThemePreset(nextState.ThemePreset)
 	g.dom = dom
 	g.lastInput = input
 	return nil
@@ -263,6 +282,7 @@ func (g *game) sceneSnapshot() ebitendebug.SceneSnapshot {
 			"frame":          g.frame,
 			"tick":           g.tick,
 			"currentPageID":  g.router.CurrentPageID(),
+			"themePreset":    g.themePreset,
 		},
 	}
 }
@@ -322,6 +342,7 @@ func (g *game) uiSnapshot() ebitendebug.UISnapshot {
 	snapshot.Root.Props["currentPageID"] = g.router.CurrentPageID()
 	snapshot.Root.Props["sidebarScroll"] = g.sidebarScroll
 	snapshot.Root.Props["detailScroll"] = g.detailScroll
+	snapshot.Root.Props["themePreset"] = g.themePreset
 	g.mu.RUnlock()
 	return snapshot
 }
@@ -381,8 +402,23 @@ func (g *game) currentState() showcaseLayoutState {
 func (g *game) currentStateLocked() showcaseLayoutState {
 	return showcaseLayoutState{
 		CurrentPageID: g.router.CurrentPageID(),
+		ThemePreset:   g.themePreset,
 		SidebarScroll: g.sidebarScroll,
 		DetailScroll:  g.detailScroll,
+	}
+}
+
+func (g *game) bindingSnapshot() showcaseBindingSnapshot {
+	if g == nil || g.bindings == nil {
+		return showcaseBindingSnapshot{}
+	}
+	return showcaseBindingSnapshot{
+		NameInput:      g.bindings.NameInput.Get(),
+		Resolution:     g.bindings.Resolution.Get(),
+		ResolutionOpen: g.bindings.ResolutionOpen.Get(),
+		Bio:            g.bindings.Bio.Get(),
+		Hardcore:       g.bindings.Hardcore.Get(),
+		MusicVolume:    g.bindings.MusicVolume.Get(),
 	}
 }
 

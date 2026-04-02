@@ -69,6 +69,9 @@ func TestBuildShowcaseDOMShowsCurrentPageTitleCodeAndDemo(t *testing.T) {
 	if _, ok := dom.FindByID("name-input"); !ok {
 		t.Fatalf("expected input demo node")
 	}
+	if _, ok := dom.FindByID("page-live-state"); !ok {
+		t.Fatalf("expected live state panel")
+	}
 }
 
 func TestShowcaseSnapshotsIncludeCurrentPageMetadata(t *testing.T) {
@@ -318,6 +321,82 @@ func TestShowcaseUISnapshotIncludesExpandedMetadata(t *testing.T) {
 	if ui.Viewport.Width != 1280 || ui.Viewport.Height != 720 {
 		t.Fatalf("unexpected viewport snapshot: %#v", ui.Viewport)
 	}
+	if got, want := ui.Root.Props["themePreset"], "default"; got != want {
+		t.Fatalf("theme preset mismatch: got %#v want %q", got, want)
+	}
+}
+
+func TestShowcaseThemePresetButtonsSwitchThemeState(t *testing.T) {
+	game := newGame(true)
+	game.width = 1280
+	game.height = 720
+
+	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+		t.Fatalf("step failed: %v", err)
+	}
+	if got, want := game.currentState().ThemePreset, "default"; got != want {
+		t.Fatalf("expected default preset, got %q", got)
+	}
+
+	result := game.debugBridgeLikeCommand("ui_click", map[string]any{
+		"node_id": "theme-preset-forest",
+	})
+	if !result.Success {
+		t.Fatalf("expected theme preset click to succeed: %#v", result)
+	}
+	for i := 0; i < 3; i++ {
+		if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+			t.Fatalf("theme step failed: %v", err)
+		}
+	}
+
+	if got, want := game.currentState().ThemePreset, "forest"; got != want {
+		t.Fatalf("expected forest preset, got %q", got)
+	}
+	ui := game.uiSnapshot()
+	if got, want := ui.Root.Props["themePreset"], "forest"; got != want {
+		t.Fatalf("expected ui snapshot theme preset %q, got %#v", want, got)
+	}
+}
+
+func TestShowcaseLiveStatePanelTracksBindingValues(t *testing.T) {
+	game := newGame(true)
+	game.width = 1280
+	game.height = 720
+
+	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+		t.Fatalf("initial step failed: %v", err)
+	}
+	if result := game.debugBridgeLikeCommand("ui_click", map[string]any{
+		"node_id": "nav-item-inputs",
+	}); !result.Success {
+		t.Fatalf("ui_click failed: %#v", result)
+	}
+	for i := 0; i < 3; i++ {
+		if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+			t.Fatalf("navigation step failed: %v", err)
+		}
+	}
+	if result := game.debugBridgeLikeCommand("ui_type_text", map[string]any{
+		"node_id": "name-input",
+		"text":    "A",
+	}); !result.Success {
+		t.Fatalf("ui_type_text failed: %#v", result)
+	}
+	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+		t.Fatalf("focus step failed: %v", err)
+	}
+	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+		t.Fatalf("text step failed: %v", err)
+	}
+
+	node, ok := game.dom.FindByID("live-state-name-value")
+	if !ok {
+		t.Fatalf("expected live state value node")
+	}
+	if got, want := node.Text, "KimA"; got != want {
+		t.Fatalf("expected live state text %q, got %q", want, got)
+	}
 }
 
 func TestDebugBridgeCommandsQueueScrollAndTextInput(t *testing.T) {
@@ -347,7 +426,7 @@ func TestDebugBridgeCommandsQueueScrollAndTextInput(t *testing.T) {
 	}
 
 	clickResult := game.debugBridge.InvokeCommand("ui_click", map[string]any{
-		"node_id": "nav-item-inputs-input-field",
+		"node_id": "nav-item-inputs",
 	})
 	if !clickResult.Success {
 		t.Fatalf("expected queued click command, got %#v", clickResult)
@@ -394,7 +473,7 @@ func TestDebugBridgeKeyEventRoutesShortcutsAndEditing(t *testing.T) {
 	}()
 
 	if result := game.debugBridge.InvokeCommand("ui_click", map[string]any{
-		"node_id": "nav-item-inputs-input-field",
+		"node_id": "nav-item-inputs",
 	}); !result.Success {
 		t.Fatalf("ui_click failed: %s", result.Message)
 	}

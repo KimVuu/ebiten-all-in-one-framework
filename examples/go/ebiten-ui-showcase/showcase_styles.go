@@ -1,51 +1,67 @@
 package main
 
-import (
-	"image/color"
-
-	ebitenui "github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui"
-)
+import ebitenui "github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui"
 
 func showcaseGroupStyle() ebitenui.Style {
+	return showcaseGroupStyleForChrome(buildDefaultShowcasePreset().Chrome)
+}
+
+func showcaseGroupStyleForChrome(chrome showcaseChrome) ebitenui.Style {
 	return ebitenui.Style{
 		Width:           ebitenui.Fill(),
 		Direction:       ebitenui.Column,
 		Padding:         ebitenui.All(16),
 		Gap:             12,
-		BackgroundColor: color.RGBA{R: 24, G: 31, B: 43, A: 255},
-		BorderColor:     color.RGBA{R: 88, G: 110, B: 140, A: 255},
+		BackgroundColor: chrome.PanelBackground,
+		BorderColor:     chrome.PanelBorder,
 		BorderWidth:     1,
 	}
 }
 
 func showcaseGroupTitleStyle() ebitenui.Style {
+	return showcaseGroupTitleStyleForChrome(buildDefaultShowcasePreset().Chrome)
+}
+
+func showcaseGroupTitleStyleForChrome(chrome showcaseChrome) ebitenui.Style {
 	return ebitenui.Style{
-		Color: color.RGBA{R: 242, G: 246, B: 252, A: 255},
+		Color: chrome.TextStrong,
 	}
 }
 
 func showcaseGroupCopyStyle() ebitenui.Style {
+	return showcaseGroupCopyStyleForChrome(buildDefaultShowcasePreset().Chrome)
+}
+
+func showcaseGroupCopyStyleForChrome(chrome showcaseChrome) ebitenui.Style {
 	return ebitenui.Style{
 		Width:      ebitenui.Fill(),
-		Color:      color.RGBA{R: 178, G: 190, B: 207, A: 255},
+		Color:      chrome.TextMuted,
 		LineHeight: 16,
 	}
 }
 
 func detailSectionStyle() ebitenui.Style {
+	return detailSectionStyleForChrome(buildDefaultShowcasePreset().Chrome)
+}
+
+func detailSectionStyleForChrome(chrome showcaseChrome) ebitenui.Style {
 	return ebitenui.Style{
 		Width:           ebitenui.Fill(),
 		Direction:       ebitenui.Column,
 		Padding:         ebitenui.All(16),
 		Gap:             12,
-		BackgroundColor: color.RGBA{R: 24, G: 31, B: 43, A: 255},
-		BorderColor:     color.RGBA{R: 86, G: 104, B: 128, A: 255},
+		BackgroundColor: chrome.PanelBackground,
+		BorderColor:     chrome.PanelBorder,
 		BorderWidth:     1,
 	}
 }
 
 func detailTitleStyle() ebitenui.Style {
+	return detailTitleStyleForChrome(buildDefaultShowcasePreset().Chrome)
+}
+
+func detailTitleStyleForChrome(chrome showcaseChrome) ebitenui.Style {
 	return ebitenui.Style{
-		Color: color.RGBA{R: 240, G: 244, B: 252, A: 255},
+		Color: chrome.TextStrong,
 	}
 }
