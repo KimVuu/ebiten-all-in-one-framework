@@ -15,6 +15,9 @@ func TestShowcaseRegistryContainsGroupsAndLeafPages(t *testing.T) {
 	if _, ok := registry.Pages["inputs/input-field"]; !ok {
 		t.Fatalf("expected input-field page")
 	}
+	if _, ok := registry.Pages["foundations/theme"]; !ok {
+		t.Fatalf("expected theme page")
+	}
 	if _, ok := registry.Pages["prefabs/dialog"]; !ok {
 		t.Fatalf("expected dialog page")
 	}

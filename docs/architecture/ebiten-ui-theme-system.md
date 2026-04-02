@@ -207,15 +207,7 @@ component config 확장 예:
 ```go
 type InputFieldConfig struct {
   ...
-  ThemeOverride *InputFieldTheme
-}
-```
-
-page/showcase 조립 예:
-
-```go
-type ThemeContext struct {
-  Theme Theme
+  Theme *Theme
 }
 ```
 
@@ -236,6 +228,25 @@ v1에서는 전역 mutable singleton을 두지 않는다.
 - prefab이 theme token을 읽는지
 - 같은 component라도 state에 따라 색상이 달라지는지
 - showcase에서 theme 교체 시 최소 대표 페이지의 visual capture가 달라지는지
+
+## 현재 v1 반영 범위
+
+- `Theme`, `DefaultTheme()`, `NewTheme()`, `ResolveTheme()` 구현
+- 대표 입력계:
+  - `InputField`
+  - `Textarea`
+  - `Checkbox`
+  - `Toggle`
+  - `Slider`
+  - `ProgressBar`
+- 대표 프리팹:
+  - `Panel`
+  - `Card`
+  - `MenuList`
+  - `Dialog`
+  - `HUDBar`
+  - `InventoryGrid`
+- showcase에 `foundations/theme` 페이지 추가
 
 ## 완료 기준
 

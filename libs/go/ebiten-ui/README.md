@@ -18,6 +18,7 @@
 - `Dialog`, `HUDBar`, `InventoryGrid`, `PauseMenu`, `SettingsPanel`, `Tooltip` 프리셋
 - `PageLayout` 기반의 고정 헤더 + 스크롤 본문 레이아웃 헬퍼
 - `PageRoute`, `PageRouter`, `PageScreen` 기반의 중첩 페이지 탐색 조립
+- `Theme`, `DefaultTheme`, `NewTheme`, `ResolveTheme` 기반 theme token 시스템
 - ID 기반 DOM 조회
 - `LayoutNode`의 `ParentID`, `ContentBounds`, `ClipRect`, `ClickableRect`, `Overflow` 계산 필드
 - `ValidateLayout` 기반의 레이아웃 검증과 constraint patch 제안
@@ -134,6 +135,24 @@ _ = layout
 페이지 전체 스크롤이 필요한 화면은 `PageLayout`로 고정 헤더와 `ScrollView` 본문을 함께 구성하고, 문서형 UI나 툴형 화면은 `PageRouter + PageScreen`으로 좌측 navigation과 우측 detail panel을 조립하는 방식을 기본값으로 둔다.
 
 레이아웃 계산 결과를 디버그하거나 AI가 검사할 때는 `ValidateLayout(layout, viewport, opts)`를 사용하면 된다. 반환값은 `LayoutIssue`와 `ConstraintPatch` 중심으로 구성되어 있어 절대좌표가 아니라 제약 수정 단위로 다룰 수 있다.
+
+## Theme 사용
+
+대표 컴포넌트와 프리팹은 `Theme *Theme`를 통해 token override를 받을 수 있다.
+
+```go
+theme := ebitenui.NewTheme("forest")
+theme.Components.Panel.Background = color.RGBA{R: 20, G: 39, B: 34, A: 255}
+theme.Components.InputField.Border = color.RGBA{R: 88, G: 187, B: 152, A: 255}
+
+node := ebitenui.InputField(ebitenui.InputFieldConfig{
+	ID:    "search",
+	Label: "Search",
+	Theme: &theme,
+})
+```
+
+v1에서는 대표 입력계와 대표 프리팹부터 theme token을 읽고, 나머지 컴포넌트는 같은 구조로 점진 확장한다.
 
 ## 패키지 구성
 

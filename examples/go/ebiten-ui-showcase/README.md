@@ -9,6 +9,7 @@
 - 우측 상세 패널
 - 그룹 페이지와 leaf 페이지
 - 각 페이지별 설명, 실제 데모, 사용법, 코드 예제 문자열
+- `foundations/theme` 페이지에서 default theme와 override theme 비교
 
 ## 실행
 

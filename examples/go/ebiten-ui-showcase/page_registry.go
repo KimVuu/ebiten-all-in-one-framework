@@ -198,6 +198,61 @@ func buildShowcasePageRegistry() ShowcasePageRegistry {
 		},
 	})
 	add(ShowcasePageSpec{
+		ID:          "foundations/theme",
+		Title:       "Theme",
+		Group:       "foundations",
+		Description: "Themes move reusable color, spacing, stroke, and component tone decisions into a single token source.",
+		UsageNotes:  "Start with `DefaultTheme()`, override the tokens you care about, then pass the same theme to panels, fields, progress bars, and prefab UIs.",
+		CodeExample: "theme := ebitenui.NewTheme(\"forest\")\ntheme.Components.Panel.Background = color.RGBA{R: 20, G: 39, B: 34, A: 255}\ntheme.Components.InputField.Border = color.RGBA{R: 88, G: 187, B: 152, A: 255}\nnode := ebitenui.InputField(ebitenui.InputFieldConfig{ID: \"search\", Theme: &theme})",
+		DemoBuilder: func(ctx ShowcaseDemoContext) *ebitenui.Node {
+			forest := ebitenui.NewTheme("forest")
+			forest.Components.Panel.Background = color.RGBA{R: 20, G: 39, B: 34, A: 255}
+			forest.Components.Panel.Border = color.RGBA{R: 88, G: 187, B: 152, A: 255}
+			forest.Components.Panel.TitleText = color.RGBA{R: 232, G: 246, B: 238, A: 255}
+			forest.Components.InputField.Background = color.RGBA{R: 12, G: 27, B: 24, A: 255}
+			forest.Components.InputField.Border = color.RGBA{R: 88, G: 187, B: 152, A: 255}
+			forest.Components.InputField.Text = color.RGBA{R: 232, G: 246, B: 238, A: 255}
+			forest.Components.InputField.Placeholder = color.RGBA{R: 144, G: 185, B: 170, A: 255}
+			forest.Components.Toggle.TrackOn = color.RGBA{R: 88, G: 187, B: 152, A: 255}
+			forest.Components.Toggle.TrackOff = color.RGBA{R: 28, G: 55, B: 48, A: 255}
+			forest.Components.ProgressBar.Fill = color.RGBA{R: 88, G: 187, B: 152, A: 255}
+
+			defaultCard := prefabs.Panel(prefabs.PanelConfig{
+				ID:    "page-theme-default-panel",
+				Title: "Default Theme",
+				Width: 260,
+				Children: []*ebitenui.Node{
+					ebitenui.InputField(ebitenui.InputFieldConfig{ID: "page-theme-default-input", Label: "Search", Placeholder: "Keyword", Width: 228}),
+					ebitenui.Toggle(ebitenui.ToggleConfig{ID: "page-theme-default-toggle", Label: "Music", Checked: true}),
+					ebitenui.ProgressBar(ebitenui.ProgressBarConfig{ID: "page-theme-default-progress", Label: "Loading", Current: 64, Max: 100, Width: 228}),
+				},
+			})
+
+			forestCard := prefabs.Panel(prefabs.PanelConfig{
+				ID:    "page-theme-forest-panel",
+				Title: "Forest Theme",
+				Width: 260,
+				Theme: &forest,
+				Children: []*ebitenui.Node{
+					ebitenui.InputField(ebitenui.InputFieldConfig{ID: "page-theme-forest-input", Label: "Search", Placeholder: "Keyword", Width: 228, Theme: &forest}),
+					ebitenui.Toggle(ebitenui.ToggleConfig{ID: "page-theme-forest-toggle", Label: "Music", Checked: true, Theme: &forest}),
+					ebitenui.ProgressBar(ebitenui.ProgressBarConfig{ID: "page-theme-forest-progress", Label: "Loading", Current: 64, Max: 100, Width: 228, Theme: &forest}),
+				},
+			})
+
+			return ebitenui.Div(ebitenui.Props{
+				ID:    "page-theme-demo",
+				Style: detailSectionStyle(),
+			},
+				ebitenui.Text("Token-Driven Look", ebitenui.Props{ID: "page-theme-title", Style: detailTitleStyle()}),
+				ebitenui.Div(ebitenui.Props{
+					ID:    "page-theme-row",
+					Style: ebitenui.Style{Width: ebitenui.Fill(), Direction: ebitenui.Row, Gap: 12},
+				}, defaultCard, forestCard),
+			)
+		},
+	})
+	add(ShowcasePageSpec{
 		ID:          "tags/basic-tags",
 		Title:       "DOM Tags",
 		Group:       "tags",
@@ -229,7 +284,7 @@ func buildShowcasePageRegistry() ShowcasePageRegistry {
 
 	routes := []ebitenui.PageRoute{
 		{ID: "overview", Title: "Overview"},
-		groupRoute("foundations", "Foundations", "foundations/image", "foundations/text-block", "foundations/spacer", "foundations/stack", "foundations/scroll-view"),
+		groupRoute("foundations", "Foundations", "foundations/image", "foundations/text-block", "foundations/spacer", "foundations/stack", "foundations/scroll-view", "foundations/theme"),
 		groupRoute("tags", "Tags", "tags/basic-tags"),
 		groupRoute("inputs", "Inputs", "inputs/input-field", "inputs/dropdown", "inputs/textarea", "inputs/radio-group", "inputs/stepper"),
 		groupRoute("layout", "Layout", "layout/grid"),

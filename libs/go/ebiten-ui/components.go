@@ -28,6 +28,7 @@ type TextareaConfig struct {
 	Width       float64
 	Height      float64
 	State       InteractionState
+	Theme       *Theme
 	OnChange    func(string)
 	OnSubmit    func(string)
 }
@@ -37,6 +38,7 @@ type CheckboxConfig struct {
 	Label    string
 	Checked  bool
 	State    InteractionState
+	Theme    *Theme
 	OnChange func(bool)
 }
 
@@ -45,6 +47,7 @@ type ToggleConfig struct {
 	Label    string
 	Checked  bool
 	State    InteractionState
+	Theme    *Theme
 	OnChange func(bool)
 }
 
@@ -57,6 +60,7 @@ type SliderConfig struct {
 	Width    float64
 	State    InteractionState
 	Tint     color.Color
+	Theme    *Theme
 	OnChange func(float64)
 }
 
@@ -84,6 +88,7 @@ type DropdownConfig struct {
 	Width        float64
 	Options      []DropdownOption
 	State        InteractionState
+	Theme        *Theme
 	OnOpenChange func(bool)
 	OnSelect     func(string)
 }
@@ -95,6 +100,7 @@ type InputFieldConfig struct {
 	Placeholder string
 	Width       float64
 	State       InteractionState
+	Theme       *Theme
 	OnChange    func(string)
 	OnSubmit    func(string)
 }
@@ -132,6 +138,7 @@ type ProgressBarConfig struct {
 	Max     float64
 	Width   float64
 	Tint    color.Color
+	Theme   *Theme
 }
 
 type DividerConfig struct {
@@ -172,6 +179,7 @@ type ModalConfig struct {
 	Title   string
 	Width   float64
 	Height  float64
+	Theme   *Theme
 	Content *Node
 }
 
@@ -180,6 +188,7 @@ type TooltipConfig struct {
 	Title       string
 	Description string
 	Width       float64
+	Theme       *Theme
 }
 
 type ContextMenuItem struct {
@@ -235,16 +244,18 @@ type ChipConfig struct {
 	State       InteractionState
 }
 
+var defaultComponentTheme = DefaultTheme()
+
 var (
-	componentTextStrong = color.RGBA{R: 239, G: 244, B: 250, A: 255}
-	componentTextMuted  = color.RGBA{R: 176, G: 188, B: 204, A: 255}
-	componentPanel      = color.RGBA{R: 26, G: 32, B: 44, A: 255}
-	componentPanelAlt   = color.RGBA{R: 19, G: 25, B: 35, A: 255}
-	componentBorder     = color.RGBA{R: 88, G: 106, B: 132, A: 255}
-	componentAccent     = color.RGBA{R: 92, G: 162, B: 255, A: 255}
-	componentAccentAlt  = color.RGBA{R: 82, G: 205, B: 150, A: 255}
-	componentWarning    = color.RGBA{R: 255, G: 193, B: 82, A: 255}
-	componentOverlay    = color.RGBA{R: 6, G: 10, B: 18, A: 190}
+	componentTextStrong = defaultComponentTheme.Palette.Text.Strong
+	componentTextMuted  = defaultComponentTheme.Palette.Text.Muted
+	componentPanel      = defaultComponentTheme.Palette.Surface.Elevated
+	componentPanelAlt   = defaultComponentTheme.Palette.Surface.Sunken
+	componentBorder     = defaultComponentTheme.Components.InputField.Border
+	componentAccent     = defaultComponentTheme.Palette.Accent.Primary
+	componentAccentAlt  = defaultComponentTheme.Palette.Accent.Secondary
+	componentWarning    = defaultComponentTheme.Palette.Accent.Warning
+	componentOverlay    = defaultComponentTheme.Palette.Overlay
 )
 
 func Icon(cfg IconConfig) *Node {
@@ -267,25 +278,27 @@ func Icon(cfg IconConfig) *Node {
 }
 
 func Textarea(cfg TextareaConfig) *Node {
+	theme := ResolveTheme(cfg.Theme)
+	fieldTheme := theme.Components.Textarea
 	height := cfg.Height
 	if height == 0 {
-		height = 96
+		height = fieldTheme.Height
 	}
 
-	body := textLikeNode(cfg.Value, cfg.Placeholder, cfg.ID+"-body", cfg.ID+"-placeholder", true)
+	body := textLikeNodeWithTheme(theme, fieldTheme, cfg.Value, cfg.Placeholder, cfg.ID+"-body", cfg.ID+"-placeholder", true)
 	children := []*Node{}
 	if cfg.Label != "" {
-		children = append(children, textLabel(cfg.ID+"-label", cfg.Label))
+		children = append(children, textLabelWithTheme(fieldTheme, cfg.ID+"-label", cfg.Label))
 	}
 	children = append(children, Div(Props{
 		ID:        cfg.ID,
 		Focusable: true,
 		Handlers:  textInputHandlers(cfg.ID, cfg.Value, cfg.OnChange, cfg.OnSubmit, true),
 		State:     cfg.State,
-		Style:     fieldContainerStyle(cfg.Width, height),
+		Style:     fieldContainerStyleWithTheme(fieldTheme, cfg.Width, height),
 	},
 		body,
-		caretNode(cfg.ID+"-caret", cfg.State, true),
+		caretNodeWithTheme(fieldTheme, cfg.ID+"-caret", cfg.State, true),
 	))
 	return Div(Props{
 		ID:    cfg.ID + "-wrapper",
@@ -293,12 +306,14 @@ func Textarea(cfg TextareaConfig) *Node {
 		Style: Style{
 			Width:     widthLength(cfg.Width),
 			Direction: Column,
-			Gap:       6,
+			Gap:       theme.Spacing.SM,
 		},
 	}, filterNil(children)...)
 }
 
 func Checkbox(cfg CheckboxConfig) *Node {
+	theme := ResolveTheme(cfg.Theme)
+	checkboxTheme := theme.Components.Checkbox
 	state := cfg.State
 	state.Selected = cfg.Checked || state.Selected
 	return InteractiveButton(Props{
@@ -316,24 +331,26 @@ func Checkbox(cfg CheckboxConfig) *Node {
 		Style: Style{
 			Width:     Fill(),
 			Direction: Row,
-			Gap:       10,
+			Gap:       theme.Spacing.LG,
 		},
 	},
 		Div(Props{
 			ID:    cfg.ID + "-box",
 			State: state,
-			Style: checkboxBoxStyle(state),
+			Style: checkboxBoxStyleWithTheme(checkboxTheme, state),
 		},
-			checkmarkNode(cfg.ID+"-check", state),
+			checkmarkNodeWithTheme(checkboxTheme, cfg.ID+"-check", state),
 		),
 		Text(cfg.Label, Props{
 			ID:    cfg.ID + "-label",
-			Style: Style{Color: componentTextStrong},
+			Style: Style{Color: checkboxTheme.Label},
 		}),
 	)
 }
 
 func Toggle(cfg ToggleConfig) *Node {
+	theme := ResolveTheme(cfg.Theme)
+	toggleTheme := theme.Components.Toggle
 	state := cfg.State
 	state.Selected = cfg.Checked || state.Selected
 
@@ -348,9 +365,9 @@ func Toggle(cfg ToggleConfig) *Node {
 		ID:    cfg.ID + "-thumb",
 		State: state,
 		Style: Style{
-			Width:           Px(16),
-			Height:          Px(16),
-			BackgroundColor: color.RGBA{R: 244, G: 246, B: 250, A: 255},
+			Width:           Px(toggleTheme.ThumbSize),
+			Height:          Px(toggleTheme.ThumbSize),
+			BackgroundColor: toggleTheme.Thumb,
 		},
 	}))
 	if !state.Selected {
@@ -375,42 +392,44 @@ func Toggle(cfg ToggleConfig) *Node {
 		Style: Style{
 			Width:     Fill(),
 			Direction: Row,
-			Gap:       10,
+			Gap:       theme.Spacing.LG,
 		},
 	},
 		Text(cfg.Label, Props{
 			ID: cfg.ID + "-label",
 			Style: Style{
 				Width: Fill(),
-				Color: componentTextStrong,
+				Color: toggleTheme.Label,
 			},
 		}),
 		Div(Props{
 			ID:    cfg.ID + "-track",
 			State: state,
 			Style: Style{
-				Width:           Px(40),
-				Height:          Px(20),
+				Width:           Px(toggleTheme.TrackWidth),
+				Height:          Px(toggleTheme.TrackHeight),
 				Direction:       Row,
-				Padding:         All(2),
-				BackgroundColor: toggleTrackColor(state),
+				Padding:         All(toggleTheme.Padding),
+				BackgroundColor: toggleTrackColorWithTheme(toggleTheme, state),
 			},
 		}, trackChildren...),
 	)
 }
 
 func Slider(cfg SliderConfig) *Node {
+	theme := ResolveTheme(cfg.Theme)
+	sliderTheme := theme.Components.Slider
 	width := cfg.Width
 	if width == 0 {
 		width = 200
 	}
 	ratio := clampRatio(cfg.Value-cfg.Min, cfg.Max-cfg.Min)
 	fillWidth := width * ratio
-	thumbWidth := 12.0
+	thumbWidth := sliderTheme.ThumbWidth
 	restWidth := maxFloat(0, width-fillWidth-thumbWidth)
 	tint := cfg.Tint
 	if tint == nil {
-		tint = componentAccent
+		tint = sliderTheme.Fill
 	}
 
 	return Div(Props{
@@ -418,20 +437,20 @@ func Slider(cfg SliderConfig) *Node {
 		Style: Style{
 			Width:     Px(width),
 			Direction: Column,
-			Gap:       6,
+			Gap:       sliderTheme.Gap,
 		},
 	},
-		StatusText(cfg.ID+"-label", cfg.Label, fmt.Sprintf("%.0f", cfg.Value)),
+		statusTextWithTheme(theme, sliderTheme.Label, sliderTheme.Value, cfg.ID+"-label", cfg.Label, fmt.Sprintf("%.0f", cfg.Value)),
 		Div(Props{
 			ID:       cfg.ID + "-track",
 			Handlers: sliderHandlers(cfg),
 			Style: Style{
 				Width:           Px(width),
-				Height:          Px(18),
+				Height:          Px(sliderTheme.TrackHeight),
 				Direction:       Row,
-				BackgroundColor: componentPanelAlt,
-				BorderColor:     componentBorder,
-				BorderWidth:     1,
+				BackgroundColor: sliderTheme.Track,
+				BorderColor:     sliderTheme.Border,
+				BorderWidth:     sliderTheme.BorderWidth,
 			},
 		},
 			Div(Props{
@@ -448,7 +467,7 @@ func Slider(cfg SliderConfig) *Node {
 				Style: Style{
 					Width:           Px(thumbWidth),
 					Height:          Fill(),
-					BackgroundColor: componentWarning,
+					BackgroundColor: sliderTheme.Thumb,
 				},
 			}),
 			Spacer(Props{
@@ -532,9 +551,11 @@ func Scrollbar(cfg ScrollbarConfig) *Node {
 }
 
 func Dropdown(cfg DropdownConfig) *Node {
+	theme := ResolveTheme(cfg.Theme)
+	fieldTheme := theme.Components.Dropdown
 	children := []*Node{}
 	if cfg.Label != "" {
-		children = append(children, textLabel(cfg.ID+"-label", cfg.Label))
+		children = append(children, textLabelWithTheme(fieldTheme, cfg.ID+"-label", cfg.Label))
 	}
 	children = append(children, InteractiveButton(Props{
 		ID:    cfg.ID + "-trigger",
@@ -548,18 +569,18 @@ func Dropdown(cfg DropdownConfig) *Node {
 				}
 			},
 		},
-		Style: fieldContainerStyle(cfg.Width, 40),
+		Style: fieldContainerStyleWithTheme(fieldTheme, cfg.Width, fieldTheme.Height),
 	},
 		Text(cfg.SelectedText, Props{
 			ID: cfg.ID + "-value",
 			Style: Style{
 				Width: Fill(),
-				Color: componentTextStrong,
+				Color: fieldTheme.Text,
 			},
 		}),
 		Text("v", Props{
 			ID:    cfg.ID + "-chevron",
-			Style: Style{Color: componentTextMuted},
+			Style: Style{Color: fieldTheme.Placeholder},
 		}),
 	))
 
@@ -611,21 +632,23 @@ func Dropdown(cfg DropdownConfig) *Node {
 }
 
 func InputField(cfg InputFieldConfig) *Node {
+	theme := ResolveTheme(cfg.Theme)
+	fieldTheme := theme.Components.InputField
 	children := []*Node{}
 	if cfg.Label != "" {
-		children = append(children, textLabel(cfg.ID+"-label", cfg.Label))
+		children = append(children, textLabelWithTheme(fieldTheme, cfg.ID+"-label", cfg.Label))
 	}
 
-	valueNode := textLikeNode(cfg.Value, cfg.Placeholder, cfg.ID+"-value", cfg.ID+"-placeholder", false)
+	valueNode := textLikeNodeWithTheme(theme, fieldTheme, cfg.Value, cfg.Placeholder, cfg.ID+"-value", cfg.ID+"-placeholder", false)
 	children = append(children, Div(Props{
 		ID:        cfg.ID,
 		Focusable: true,
 		Handlers:  textInputHandlers(cfg.ID, cfg.Value, cfg.OnChange, cfg.OnSubmit, false),
 		State:     cfg.State,
-		Style:     fieldContainerStyle(cfg.Width, 40),
+		Style:     fieldContainerStyleWithTheme(fieldTheme, cfg.Width, fieldTheme.Height),
 	},
 		valueNode,
-		caretNode(cfg.ID+"-caret", cfg.State, false),
+		caretNodeWithTheme(fieldTheme, cfg.ID+"-caret", cfg.State, false),
 	))
 
 	return Div(Props{
@@ -633,7 +656,7 @@ func InputField(cfg InputFieldConfig) *Node {
 		Style: Style{
 			Width:     widthLength(cfg.Width),
 			Direction: Column,
-			Gap:       6,
+			Gap:       theme.Spacing.SM,
 		},
 	}, filterNil(children)...)
 }
@@ -774,13 +797,15 @@ func Stepper(cfg StepperConfig) *Node {
 }
 
 func ProgressBar(cfg ProgressBarConfig) *Node {
+	theme := ResolveTheme(cfg.Theme)
+	progressTheme := theme.Components.ProgressBar
 	width := cfg.Width
 	if width == 0 {
 		width = 180
 	}
 	tint := cfg.Tint
 	if tint == nil {
-		tint = componentAccent
+		tint = progressTheme.Fill
 	}
 	fillWidth := width * clampRatio(cfg.Current, cfg.Max)
 	return Div(Props{
@@ -788,19 +813,19 @@ func ProgressBar(cfg ProgressBarConfig) *Node {
 		Style: Style{
 			Width:     Px(width),
 			Direction: Column,
-			Gap:       6,
+			Gap:       progressTheme.Gap,
 		},
 	},
-		StatusText(cfg.ID+"-label", cfg.Label, fmt.Sprintf("%.0f/%.0f", cfg.Current, cfg.Max)),
+		statusTextWithTheme(theme, progressTheme.Label, progressTheme.Value, cfg.ID+"-label", cfg.Label, fmt.Sprintf("%.0f/%.0f", cfg.Current, cfg.Max)),
 		Div(Props{
 			ID: cfg.ID + "-track",
 			Style: Style{
 				Width:           Px(width),
-				Height:          Px(14),
+				Height:          Px(progressTheme.TrackHeight),
 				Direction:       Row,
-				BackgroundColor: componentPanelAlt,
-				BorderColor:     componentBorder,
-				BorderWidth:     1,
+				BackgroundColor: progressTheme.Track,
+				BorderColor:     progressTheme.Border,
+				BorderWidth:     progressTheme.BorderWidth,
 			},
 		},
 			Div(Props{
@@ -916,6 +941,8 @@ func VirtualList(cfg VirtualListConfig) *Node {
 }
 
 func Modal(cfg ModalConfig) *Node {
+	theme := ResolveTheme(cfg.Theme)
+	modalTheme := theme.Components.Modal
 	if !cfg.Open {
 		return Div(Props{
 			ID: cfg.ID,
@@ -937,7 +964,7 @@ func Modal(cfg ModalConfig) *Node {
 
 	content := cfg.Content
 	if content == nil {
-		content = Text("", Props{ID: cfg.ID + "-empty", Style: Style{Color: componentTextMuted}})
+		content = Text("", Props{ID: cfg.ID + "-empty", Style: Style{Color: modalTheme.BodyText}})
 	}
 
 	return Stack(Props{
@@ -952,7 +979,7 @@ func Modal(cfg ModalConfig) *Node {
 			Style: Style{
 				Width:           Fill(),
 				Height:          Fill(),
-				BackgroundColor: componentOverlay,
+				BackgroundColor: modalTheme.Backdrop,
 			},
 		}),
 		Div(Props{
@@ -978,14 +1005,14 @@ func Modal(cfg ModalConfig) *Node {
 						Width:           Px(width),
 						Height:          Px(height),
 						Direction:       Column,
-						Padding:         All(16),
-						Gap:             12,
-						BackgroundColor: componentPanel,
-						BorderColor:     componentWarning,
-						BorderWidth:     2,
+						Padding:         All(modalTheme.Padding),
+						Gap:             modalTheme.Gap,
+						BackgroundColor: modalTheme.Surface,
+						BorderColor:     modalTheme.Border,
+						BorderWidth:     modalTheme.BorderWidth,
 					},
 				},
-					Text(cfg.Title, Props{ID: cfg.ID + "-title", Style: Style{Color: componentTextStrong}}),
+					Text(cfg.Title, Props{ID: cfg.ID + "-title", Style: Style{Color: modalTheme.TitleText}}),
 					content,
 				),
 				Spacer(Props{ID: cfg.ID + "-right-spacer", Style: Style{Width: Fill(), Height: Fill()}}),
@@ -996,28 +1023,30 @@ func Modal(cfg ModalConfig) *Node {
 }
 
 func Tooltip(cfg TooltipConfig) *Node {
+	theme := ResolveTheme(cfg.Theme)
+	tooltipTheme := theme.Components.Tooltip
 	return Div(Props{
 		ID: cfg.ID,
 		Style: Style{
 			Width:           widthLength(cfg.Width),
 			Direction:       Column,
-			Padding:         All(12),
-			Gap:             8,
-			BackgroundColor: componentPanel,
-			BorderColor:     componentWarning,
-			BorderWidth:     1,
+			Padding:         All(tooltipTheme.Padding),
+			Gap:             tooltipTheme.Gap,
+			BackgroundColor: tooltipTheme.Surface,
+			BorderColor:     tooltipTheme.Border,
+			BorderWidth:     tooltipTheme.BorderWidth,
 		},
 	},
 		Text(cfg.Title, Props{
 			ID:    cfg.ID + "-title",
-			Style: Style{Color: componentWarning},
+			Style: Style{Color: tooltipTheme.TitleText},
 		}),
 		TextBlock(cfg.Description, Props{
 			ID: cfg.ID + "-description",
 			Style: Style{
 				Width:      Fill(),
-				Color:      componentTextMuted,
-				LineHeight: 16,
+				Color:      tooltipTheme.BodyText,
+				LineHeight: tooltipTheme.LineHeight,
 			},
 		}),
 	)
@@ -1227,6 +1256,11 @@ func ComponentID(prefix string, index int) string {
 }
 
 func StatusText(id string, label string, value string) *Node {
+	theme := DefaultTheme()
+	return statusTextWithTheme(theme, theme.Palette.Text.Muted, theme.Palette.Text.Strong, id, label, value)
+}
+
+func statusTextWithTheme(_ Theme, labelColor color.Color, valueColor color.Color, id string, label string, value string) *Node {
 	return Div(Props{
 		ID: id,
 		Style: Style{
@@ -1239,34 +1273,42 @@ func StatusText(id string, label string, value string) *Node {
 			ID: id + "-left",
 			Style: Style{
 				Width: Fill(),
-				Color: componentTextMuted,
+				Color: labelColor,
 			},
 		}),
 		Text(value, Props{
 			ID:    id + "-right",
-			Style: Style{Color: componentTextStrong},
+			Style: Style{Color: valueColor},
 		}),
 	)
 }
 
 func textLabel(id string, value string) *Node {
+	return textLabelWithTheme(DefaultTheme().Components.InputField, id, value)
+}
+
+func textLabelWithTheme(fieldTheme FieldTheme, id string, value string) *Node {
 	return Text(value, Props{
 		ID: id,
 		Style: Style{
-			Color: componentTextMuted,
+			Color: fieldTheme.Label,
 		},
 	})
 }
 
 func textLikeNode(value, placeholder, valueID, placeholderID string, multiline bool) *Node {
+	return textLikeNodeWithTheme(DefaultTheme(), DefaultTheme().Components.InputField, value, placeholder, valueID, placeholderID, multiline)
+}
+
+func textLikeNodeWithTheme(theme Theme, fieldTheme FieldTheme, value, placeholder, valueID, placeholderID string, multiline bool) *Node {
 	if value != "" {
 		if multiline {
 			return TextBlock(value, Props{
 				ID: valueID,
 				Style: Style{
 					Width:      Fill(),
-					Color:      componentTextStrong,
-					LineHeight: 16,
+					Color:      fieldTheme.Text,
+					LineHeight: floatOrDefault(fieldTheme.LineHeight, theme.Typography.BodyLineHeight),
 				},
 			})
 		}
@@ -1274,7 +1316,7 @@ func textLikeNode(value, placeholder, valueID, placeholderID string, multiline b
 			ID: valueID,
 			Style: Style{
 				Width: Fill(),
-				Color: componentTextStrong,
+				Color: fieldTheme.Text,
 			},
 		})
 	}
@@ -1284,8 +1326,8 @@ func textLikeNode(value, placeholder, valueID, placeholderID string, multiline b
 			ID: placeholderID,
 			Style: Style{
 				Width:      Fill(),
-				Color:      componentTextMuted,
-				LineHeight: 16,
+				Color:      fieldTheme.Placeholder,
+				LineHeight: floatOrDefault(fieldTheme.LineHeight, theme.Typography.BodyLineHeight),
 			},
 		})
 	}
@@ -1293,12 +1335,16 @@ func textLikeNode(value, placeholder, valueID, placeholderID string, multiline b
 		ID: placeholderID,
 		Style: Style{
 			Width: Fill(),
-			Color: componentTextMuted,
+			Color: fieldTheme.Placeholder,
 		},
 	})
 }
 
 func caretNode(id string, state InteractionState, multiline bool) *Node {
+	return caretNodeWithTheme(DefaultTheme().Components.InputField, id, state, multiline)
+}
+
+func caretNodeWithTheme(fieldTheme FieldTheme, id string, state InteractionState, multiline bool) *Node {
 	if !state.Focused {
 		return nil
 	}
@@ -1311,56 +1357,68 @@ func caretNode(id string, state InteractionState, multiline bool) *Node {
 		Orientation: Vertical,
 		Length:      height,
 		Thickness:   2,
-		Color:       componentWarning,
+		Color:       fieldTheme.Caret,
 	})
 }
 
 func fieldContainerStyle(width, height float64) Style {
+	return fieldContainerStyleWithTheme(DefaultTheme().Components.InputField, width, height)
+}
+
+func fieldContainerStyleWithTheme(fieldTheme FieldTheme, width, height float64) Style {
 	if height == 0 {
-		height = 40
+		height = fieldTheme.Height
 	}
 	return Style{
 		Width:           widthLength(width),
 		Height:          Px(height),
 		Direction:       Row,
-		Padding:         All(12),
-		Gap:             8,
-		BackgroundColor: componentPanelAlt,
-		BorderColor:     componentBorder,
-		BorderWidth:     1,
+		Padding:         All(fieldTheme.Padding),
+		Gap:             fieldTheme.Gap,
+		BackgroundColor: fieldTheme.Background,
+		BorderColor:     fieldTheme.Border,
+		BorderWidth:     fieldTheme.BorderWidth,
 	}
 }
 
 func checkmarkNode(id string, state InteractionState) *Node {
+	return checkmarkNodeWithTheme(DefaultTheme().Components.Checkbox, id, state)
+}
+
+func checkmarkNodeWithTheme(checkboxTheme CheckboxTheme, id string, state InteractionState) *Node {
 	if !state.Selected {
 		return nil
 	}
 	return Text("v", Props{
 		ID:    id,
-		Style: Style{Color: color.RGBA{R: 12, G: 18, B: 26, A: 255}},
+		Style: Style{Color: checkboxTheme.Check},
 	})
 }
 
 func checkboxBoxStyle(state InteractionState) Style {
-	fill := color.RGBA{R: 230, G: 234, B: 242, A: 255}
+	return checkboxBoxStyleWithTheme(DefaultTheme().Components.Checkbox, state)
+}
+
+func checkboxBoxStyleWithTheme(checkboxTheme CheckboxTheme, state InteractionState) Style {
+	fill := checkboxTheme.Box
 	if state.Selected {
-		fill = componentAccent
+		fill = checkboxTheme.BoxSelected
 	}
 	if state.Disabled {
-		fill = color.RGBA{R: 84, G: 90, B: 100, A: 255}
+		fill = checkboxTheme.BoxDisabled
 	}
 	return Style{
-		Width:           Px(20),
-		Height:          Px(20),
-		Padding:         All(2),
+		Width:           Px(checkboxTheme.Size),
+		Height:          Px(checkboxTheme.Size),
+		Padding:         All(checkboxTheme.Padding),
 		BackgroundColor: fill,
-		BorderColor:     componentBorder,
-		BorderWidth:     1,
+		BorderColor:     checkboxTheme.Border,
+		BorderWidth:     checkboxTheme.BorderWidth,
 	}
 }
 
 func radioDotStyle(state InteractionState) Style {
-	fill := color.RGBA{R: 255, G: 255, B: 255, A: 24}
+	var fill color.Color = color.RGBA{R: 255, G: 255, B: 255, A: 24}
 	if state.Selected {
 		fill = componentWarning
 	}
@@ -1374,10 +1432,17 @@ func radioDotStyle(state InteractionState) Style {
 }
 
 func toggleTrackColor(state InteractionState) color.Color {
-	if state.Selected {
-		return componentAccentAlt
+	return toggleTrackColorWithTheme(DefaultTheme().Components.Toggle, state)
+}
+
+func toggleTrackColorWithTheme(toggleTheme ToggleTheme, state InteractionState) color.Color {
+	if state.Disabled {
+		return toggleTheme.TrackDisabled
 	}
-	return componentPanelAlt
+	if state.Selected {
+		return toggleTheme.TrackOn
+	}
+	return toggleTheme.TrackOff
 }
 
 func choiceBackground(state InteractionState) color.Color {

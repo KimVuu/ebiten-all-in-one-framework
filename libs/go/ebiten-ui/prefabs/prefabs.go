@@ -9,21 +9,23 @@ import (
 )
 
 var (
-	panelBG      = color.RGBA{R: 25, G: 32, B: 42, A: 255}
-	panelBGAlt   = color.RGBA{R: 18, G: 24, B: 33, A: 255}
-	cardBG       = color.RGBA{R: 31, G: 40, B: 54, A: 255}
-	borderMuted  = color.RGBA{R: 85, G: 103, B: 128, A: 255}
-	textStrong   = color.RGBA{R: 239, G: 244, B: 250, A: 255}
-	textMuted    = color.RGBA{R: 178, G: 188, B: 204, A: 255}
-	accentBlue   = color.RGBA{R: 91, G: 162, B: 255, A: 255}
-	accentGreen  = color.RGBA{R: 82, G: 205, B: 150, A: 255}
-	accentYellow = color.RGBA{R: 255, G: 194, B: 82, A: 255}
+	defaultPrefabTheme = ebitenui.DefaultTheme()
+	panelBG            = defaultPrefabTheme.Components.Panel.Background
+	panelBGAlt         = defaultPrefabTheme.Components.HUDBar.Track
+	cardBG             = defaultPrefabTheme.Components.Card.Background
+	borderMuted        = defaultPrefabTheme.Components.Panel.Border
+	textStrong         = defaultPrefabTheme.Palette.Text.Strong
+	textMuted          = defaultPrefabTheme.Palette.Text.Muted
+	accentBlue         = defaultPrefabTheme.Palette.Accent.Primary
+	accentGreen        = defaultPrefabTheme.Palette.Accent.Secondary
+	accentYellow       = defaultPrefabTheme.Palette.Accent.Warning
 )
 
 type PanelConfig struct {
 	ID       string
 	Title    string
 	Width    float64
+	Theme    *ebitenui.Theme
 	Children []*ebitenui.Node
 }
 
@@ -31,6 +33,7 @@ type CardConfig struct {
 	ID       string
 	Title    string
 	Width    float64
+	Theme    *ebitenui.Theme
 	Children []*ebitenui.Node
 }
 
@@ -52,6 +55,7 @@ type MenuListConfig struct {
 	ID    string
 	Title string
 	Width float64
+	Theme *ebitenui.Theme
 	Items []MenuItem
 }
 
@@ -66,6 +70,7 @@ type DialogConfig struct {
 	Title   string
 	Body    string
 	Width   float64
+	Theme   *ebitenui.Theme
 	Actions []DialogAction
 }
 
@@ -76,6 +81,7 @@ type HUDBarConfig struct {
 	Max     int
 	Width   float64
 	Tint    color.Color
+	Theme   *ebitenui.Theme
 }
 
 type InventorySlot struct {
@@ -91,6 +97,7 @@ type InventoryGridConfig struct {
 	Title    string
 	Columns  int
 	CellSize float64
+	Theme    *ebitenui.Theme
 	Slots    []InventorySlot
 }
 
@@ -98,6 +105,7 @@ type PauseMenuConfig struct {
 	ID     string
 	Title  string
 	Width  float64
+	Theme  *ebitenui.Theme
 	Items  []MenuItem
 	Footer string
 }
@@ -119,6 +127,7 @@ type SettingsPanelConfig struct {
 	Title    string
 	Width    float64
 	Height   float64
+	Theme    *ebitenui.Theme
 	Sections []SettingSection
 }
 
@@ -132,16 +141,19 @@ type TooltipConfig struct {
 	Title       string
 	Description string
 	Width       float64
+	Theme       *ebitenui.Theme
 	Stats       []TooltipStat
 }
 
 func Panel(cfg PanelConfig) *ebitenui.Node {
+	theme := ebitenui.ResolveTheme(cfg.Theme)
+	panelTheme := theme.Components.Panel
 	children := make([]*ebitenui.Node, 0, len(cfg.Children)+1)
 	if cfg.Title != "" {
 		children = append(children, ebitenui.Text(cfg.Title, ebitenui.Props{
 			ID: cfg.ID + "-title",
 			Style: ebitenui.Style{
-				Color: textStrong,
+				Color: panelTheme.TitleText,
 			},
 		}))
 	}
@@ -151,21 +163,23 @@ func Panel(cfg PanelConfig) *ebitenui.Node {
 		Style: ebitenui.Style{
 			Width:           widthLength(cfg.Width),
 			Direction:       ebitenui.Column,
-			Padding:         ebitenui.All(16),
-			Gap:             12,
-			BackgroundColor: panelBG,
-			BorderColor:     borderMuted,
-			BorderWidth:     1,
+			Padding:         ebitenui.All(panelTheme.Padding),
+			Gap:             panelTheme.Gap,
+			BackgroundColor: panelTheme.Background,
+			BorderColor:     panelTheme.Border,
+			BorderWidth:     panelTheme.BorderWidth,
 		},
 	}, children...)
 }
 
 func Card(cfg CardConfig) *ebitenui.Node {
+	theme := ebitenui.ResolveTheme(cfg.Theme)
+	cardTheme := theme.Components.Card
 	children := make([]*ebitenui.Node, 0, len(cfg.Children)+1)
 	if cfg.Title != "" {
 		children = append(children, ebitenui.Text(cfg.Title, ebitenui.Props{
 			ID:    cfg.ID + "-title",
-			Style: ebitenui.Style{Color: textStrong},
+			Style: ebitenui.Style{Color: cardTheme.TitleText},
 		}))
 	}
 	children = append(children, cfg.Children...)
@@ -174,11 +188,11 @@ func Card(cfg CardConfig) *ebitenui.Node {
 		Style: ebitenui.Style{
 			Width:           widthLength(cfg.Width),
 			Direction:       ebitenui.Column,
-			Padding:         ebitenui.All(12),
-			Gap:             10,
-			BackgroundColor: cardBG,
-			BorderColor:     borderMuted,
-			BorderWidth:     1,
+			Padding:         ebitenui.All(cardTheme.Padding),
+			Gap:             cardTheme.Gap,
+			BackgroundColor: cardTheme.Background,
+			BorderColor:     cardTheme.Border,
+			BorderWidth:     cardTheme.BorderWidth,
 		},
 	}, children...)
 }
@@ -222,11 +236,12 @@ func StatusRow(cfg StatusRowConfig) *ebitenui.Node {
 }
 
 func MenuList(cfg MenuListConfig) *ebitenui.Node {
+	theme := ebitenui.ResolveTheme(cfg.Theme)
 	children := make([]*ebitenui.Node, 0, len(cfg.Items)+1)
 	if cfg.Title != "" {
 		children = append(children, ebitenui.Text(cfg.Title, ebitenui.Props{
 			ID:    cfg.ID + "-title",
-			Style: ebitenui.Style{Color: textStrong},
+			Style: ebitenui.Style{Color: theme.Components.Panel.TitleText},
 		}))
 	}
 
@@ -236,21 +251,21 @@ func MenuList(cfg MenuListConfig) *ebitenui.Node {
 				ID: item.ID + "-label",
 				Style: ebitenui.Style{
 					Width: ebitenui.Fill(),
-					Color: buttonTextColor(item.State),
+					Color: buttonTextColor(theme, item.State),
 				},
 			}),
 		}
 		if item.Hint != "" {
 			itemChildren = append(itemChildren, ebitenui.Text(item.Hint, ebitenui.Props{
 				ID:    item.ID + "-hint",
-				Style: ebitenui.Style{Color: buttonTextColor(item.State)},
+				Style: ebitenui.Style{Color: buttonTextColor(theme, item.State)},
 			}))
 		}
 
 		children = append(children, ebitenui.InteractiveButton(ebitenui.Props{
 			ID:    item.ID,
 			State: item.State,
-			Style: menuButtonStyle(item.State),
+			Style: menuButtonStyle(theme, item.State),
 		}, itemChildren...))
 	}
 
@@ -265,12 +280,13 @@ func MenuList(cfg MenuListConfig) *ebitenui.Node {
 }
 
 func Dialog(cfg DialogConfig) *ebitenui.Node {
+	theme := ebitenui.ResolveTheme(cfg.Theme)
 	children := []*ebitenui.Node{
 		ebitenui.TextBlock(cfg.Body, ebitenui.Props{
 			ID: cfg.ID + "-body",
 			Style: ebitenui.Style{
 				Width:      ebitenui.Fill(),
-				Color:      textMuted,
+				Color:      theme.Components.Dialog.BodyText,
 				LineHeight: 16,
 			},
 		}),
@@ -281,12 +297,12 @@ func Dialog(cfg DialogConfig) *ebitenui.Node {
 		actionNodes = append(actionNodes, ebitenui.InteractiveButton(ebitenui.Props{
 			ID:    action.ID,
 			State: action.State,
-			Style: menuButtonStyle(action.State),
+			Style: menuButtonStyle(theme, action.State),
 		},
 			ebitenui.Text(action.Label, ebitenui.Props{
 				ID: action.ID + "-label",
 				Style: ebitenui.Style{
-					Color: buttonTextColor(action.State),
+					Color: buttonTextColor(theme, action.State),
 				},
 			}),
 		))
@@ -305,18 +321,21 @@ func Dialog(cfg DialogConfig) *ebitenui.Node {
 		ID:       cfg.ID,
 		Title:    cfg.Title,
 		Width:    cfg.Width,
+		Theme:    cfg.Theme,
 		Children: children,
 	})
 }
 
 func HUDBar(cfg HUDBarConfig) *ebitenui.Node {
+	theme := ebitenui.ResolveTheme(cfg.Theme)
+	hudTheme := theme.Components.HUDBar
 	width := cfg.Width
 	if width == 0 {
 		width = 200
 	}
 	tint := cfg.Tint
 	if tint == nil {
-		tint = accentBlue
+		tint = hudTheme.Fill
 	}
 
 	fillWidth := width * clampRatio(cfg.Current, cfg.Max)
@@ -325,7 +344,7 @@ func HUDBar(cfg HUDBarConfig) *ebitenui.Node {
 		Style: ebitenui.Style{
 			Width:     ebitenui.Px(width),
 			Direction: ebitenui.Column,
-			Gap:       6,
+			Gap:       hudTheme.Gap,
 		},
 	},
 		StatusRow(StatusRowConfig{
@@ -337,10 +356,10 @@ func HUDBar(cfg HUDBarConfig) *ebitenui.Node {
 			ID: cfg.ID + "-track",
 			Style: ebitenui.Style{
 				Width:           ebitenui.Px(width),
-				Height:          ebitenui.Px(18),
-				BackgroundColor: panelBGAlt,
-				BorderColor:     borderMuted,
-				BorderWidth:     1,
+				Height:          ebitenui.Px(hudTheme.TrackHeight),
+				BackgroundColor: hudTheme.Track,
+				BorderColor:     hudTheme.Border,
+				BorderWidth:     hudTheme.BorderWidth,
 			},
 		},
 			ebitenui.Div(ebitenui.Props{
@@ -354,7 +373,7 @@ func HUDBar(cfg HUDBarConfig) *ebitenui.Node {
 			ebitenui.Text(fmt.Sprintf("%s %d/%d", cfg.Label, cfg.Current, cfg.Max), ebitenui.Props{
 				ID: cfg.ID + "-text",
 				Style: ebitenui.Style{
-					Color: textStrong,
+					Color: hudTheme.Text,
 				},
 			}),
 		),
@@ -362,6 +381,8 @@ func HUDBar(cfg HUDBarConfig) *ebitenui.Node {
 }
 
 func InventoryGrid(cfg InventoryGridConfig) *ebitenui.Node {
+	theme := ebitenui.ResolveTheme(cfg.Theme)
+	gridTheme := theme.Components.InventoryGrid
 	columns := cfg.Columns
 	if columns <= 0 {
 		columns = 4
@@ -382,7 +403,7 @@ func InventoryGrid(cfg InventoryGridConfig) *ebitenui.Node {
 			slot := cfg.Slots[index]
 			icon := slot.Icon
 			if icon.Width == 0 && icon.Height == 0 && icon.Fill == nil && icon.Image == nil {
-				icon = ebitenui.SolidImage(18, 18, accentBlue)
+				icon = ebitenui.SolidImage(18, 18, gridTheme.IconFill)
 			}
 			rowChildren = append(rowChildren, ebitenui.InteractiveButton(ebitenui.Props{
 				ID:    slot.ID,
@@ -391,11 +412,11 @@ func InventoryGrid(cfg InventoryGridConfig) *ebitenui.Node {
 					Width:           ebitenui.Px(cellSize),
 					Height:          ebitenui.Px(cellSize),
 					Direction:       ebitenui.Column,
-					Padding:         ebitenui.All(8),
-					Gap:             4,
-					BackgroundColor: cardBG,
-					BorderColor:     borderMuted,
-					BorderWidth:     1,
+					Padding:         ebitenui.All(gridTheme.SlotPadding),
+					Gap:             gridTheme.SlotGap,
+					BackgroundColor: gridTheme.SlotBackground,
+					BorderColor:     gridTheme.SlotBorder,
+					BorderWidth:     gridTheme.SlotBorderWidth,
 				},
 			},
 				ebitenui.Image(ebitenui.Props{
@@ -405,13 +426,13 @@ func InventoryGrid(cfg InventoryGridConfig) *ebitenui.Node {
 				ebitenui.Text(slot.Label, ebitenui.Props{
 					ID: slot.ID + "-label",
 					Style: ebitenui.Style{
-						Color: textStrong,
+						Color: gridTheme.SlotText,
 					},
 				}),
 				ebitenui.Text(fmt.Sprintf("x%d", slot.Quantity), ebitenui.Props{
 					ID: slot.ID + "-qty",
 					Style: ebitenui.Style{
-						Color: textMuted,
+						Color: gridTheme.SlotMuted,
 					},
 				}),
 			))
@@ -430,6 +451,7 @@ func InventoryGrid(cfg InventoryGridConfig) *ebitenui.Node {
 		ID:    cfg.ID,
 		Title: cfg.Title,
 		Width: float64(columns)*cellSize + float64(columns-1)*8 + 32,
+		Theme: cfg.Theme,
 		Children: []*ebitenui.Node{
 			ebitenui.Div(ebitenui.Props{
 				ID: cfg.ID + "-grid",
@@ -448,6 +470,7 @@ func PauseMenu(cfg PauseMenuConfig) *ebitenui.Node {
 		MenuList(MenuListConfig{
 			ID:    cfg.ID + "-menu",
 			Width: cfg.Width,
+			Theme: cfg.Theme,
 			Items: cfg.Items,
 		}),
 	}
@@ -462,18 +485,20 @@ func PauseMenu(cfg PauseMenuConfig) *ebitenui.Node {
 		ID:       cfg.ID,
 		Title:    cfg.Title,
 		Width:    cfg.Width,
+		Theme:    cfg.Theme,
 		Children: children,
 	})
 }
 
 func SettingsPanel(cfg SettingsPanelConfig) *ebitenui.Node {
+	theme := ebitenui.ResolveTheme(cfg.Theme)
 	sectionNodes := make([]*ebitenui.Node, 0, len(cfg.Sections))
 	for i, section := range cfg.Sections {
 		optionNodes := make([]*ebitenui.Node, 0, len(section.Options)+2)
 		optionNodes = append(optionNodes,
 			ebitenui.Text(section.Title, ebitenui.Props{
 				ID:    fmt.Sprintf("%s-section-%d-title", cfg.ID, i),
-				Style: ebitenui.Style{Color: textStrong},
+				Style: ebitenui.Style{Color: theme.Components.Card.TitleText},
 			}),
 			ebitenui.TextBlock(section.Description, ebitenui.Props{
 				ID: fmt.Sprintf("%s-section-%d-copy", cfg.ID, i),
@@ -495,6 +520,7 @@ func SettingsPanel(cfg SettingsPanelConfig) *ebitenui.Node {
 
 		sectionNodes = append(sectionNodes, Card(CardConfig{
 			ID:       fmt.Sprintf("%s-section-%d", cfg.ID, i),
+			Theme:    cfg.Theme,
 			Children: optionNodes,
 		}))
 	}
@@ -513,6 +539,7 @@ func SettingsPanel(cfg SettingsPanelConfig) *ebitenui.Node {
 		ID:    cfg.ID,
 		Title: cfg.Title,
 		Width: cfg.Width,
+		Theme: cfg.Theme,
 		Children: []*ebitenui.Node{
 			scroll,
 		},
@@ -520,13 +547,14 @@ func SettingsPanel(cfg SettingsPanelConfig) *ebitenui.Node {
 }
 
 func Tooltip(cfg TooltipConfig) *ebitenui.Node {
+	theme := ebitenui.ResolveTheme(cfg.Theme)
 	statRows := make([]*ebitenui.Node, 0, len(cfg.Stats)+2)
 	statRows = append(statRows,
 		ebitenui.TextBlock(cfg.Description, ebitenui.Props{
 			ID: cfg.ID + "-description",
 			Style: ebitenui.Style{
 				Width:      ebitenui.Fill(),
-				Color:      textMuted,
+				Color:      theme.Components.Tooltip.BodyText,
 				LineHeight: 16,
 			},
 		}),
@@ -544,41 +572,44 @@ func Tooltip(cfg TooltipConfig) *ebitenui.Node {
 		ID:       cfg.ID,
 		Title:    cfg.Title,
 		Width:    cfg.Width,
+		Theme:    cfg.Theme,
 		Children: statRows,
 	})
 }
 
-func buttonTextColor(state ebitenui.InteractionState) color.Color {
-	if state.Disabled {
-		return color.RGBA{R: 150, G: 156, B: 168, A: 255}
+func buttonTextColor(theme ebitenui.Theme, state ebitenui.InteractionState) color.Color {
+	buttonTheme := theme.Components.MenuButton
+	switch {
+	case state.Disabled:
+		return buttonTheme.Disabled.Text
+	case state.Selected:
+		return buttonTheme.Selected.Text
+	case state.Focused:
+		return buttonTheme.Focused.Text
+	default:
+		return buttonTheme.Default.Text
 	}
-	if state.Selected || state.Focused {
-		return color.RGBA{R: 18, G: 24, B: 33, A: 255}
-	}
-	return textStrong
 }
 
-func menuButtonStyle(state ebitenui.InteractionState) ebitenui.Style {
-	background := cardBG
-	border := borderMuted
-	if state.Selected {
-		background = accentBlue
-		border = accentYellow
-	} else if state.Focused {
-		background = accentGreen
-		border = accentYellow
-	} else if state.Disabled {
-		background = color.RGBA{R: 50, G: 56, B: 68, A: 255}
-		border = color.RGBA{R: 74, G: 80, B: 90, A: 255}
+func menuButtonStyle(theme ebitenui.Theme, state ebitenui.InteractionState) ebitenui.Style {
+	buttonTheme := theme.Components.MenuButton
+	colors := buttonTheme.Default
+	switch {
+	case state.Disabled:
+		colors = buttonTheme.Disabled
+	case state.Selected:
+		colors = buttonTheme.Selected
+	case state.Focused:
+		colors = buttonTheme.Focused
 	}
 	return ebitenui.Style{
 		Width:           ebitenui.Fill(),
 		Direction:       ebitenui.Row,
-		Padding:         ebitenui.All(12),
-		Gap:             8,
-		BackgroundColor: background,
-		BorderColor:     border,
-		BorderWidth:     1,
+		Padding:         ebitenui.All(buttonTheme.Padding),
+		Gap:             buttonTheme.Gap,
+		BackgroundColor: colors.Background,
+		BorderColor:     colors.Border,
+		BorderWidth:     buttonTheme.BorderWidth,
 	}
 }
 

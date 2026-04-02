@@ -153,6 +153,112 @@ func TestTooltipBuildsTitleDescriptionAndStats(t *testing.T) {
 	}
 }
 
+func TestPanelUsesThemeSurfaceAndBorder(t *testing.T) {
+	panelBackground := color.RGBA{R: 40, G: 46, B: 60, A: 255}
+	panelBorder := color.RGBA{R: 123, G: 132, B: 170, A: 255}
+	titleColor := color.RGBA{R: 250, G: 245, B: 236, A: 255}
+
+	theme := ebitenui.DefaultTheme()
+	theme.Components.Panel.Background = panelBackground
+	theme.Components.Panel.Border = panelBorder
+	theme.Components.Panel.TitleText = titleColor
+
+	node := prefabs.Panel(prefabs.PanelConfig{
+		ID:    "panel",
+		Title: "Status",
+		Theme: &theme,
+	})
+
+	dom := ebitenui.New(node)
+	panel, ok := dom.FindByID("panel")
+	if !ok {
+		t.Fatalf("expected panel node")
+	}
+	if !samePrefabColor(panel.Props.Style.BackgroundColor, panelBackground) {
+		t.Fatalf("expected themed panel background")
+	}
+	if !samePrefabColor(panel.Props.Style.BorderColor, panelBorder) {
+		t.Fatalf("expected themed panel border")
+	}
+	title, ok := dom.FindByID("panel-title")
+	if !ok {
+		t.Fatalf("expected panel title")
+	}
+	if !samePrefabColor(title.Props.Style.Color, titleColor) {
+		t.Fatalf("expected themed panel title color")
+	}
+}
+
+func TestDialogUsesThemeForSelectedAction(t *testing.T) {
+	selectedBackground := color.RGBA{R: 255, G: 205, B: 98, A: 255}
+	selectedText := color.RGBA{R: 18, G: 22, B: 32, A: 255}
+
+	theme := ebitenui.DefaultTheme()
+	theme.Components.MenuButton.Selected.Background = selectedBackground
+	theme.Components.MenuButton.Selected.Text = selectedText
+
+	node := prefabs.Dialog(prefabs.DialogConfig{
+		ID:    "dialog-theme",
+		Title: "Save changes?",
+		Body:  "Progress will be written to disk.",
+		Theme: &theme,
+		Actions: []prefabs.DialogAction{
+			{ID: "dialog-theme-cancel", Label: "Cancel"},
+			{ID: "dialog-theme-confirm", Label: "Confirm", State: ebitenui.InteractionState{Selected: true}},
+		},
+	})
+
+	dom := ebitenui.New(node)
+	action, ok := dom.FindByID("dialog-theme-confirm")
+	if !ok {
+		t.Fatalf("expected selected action")
+	}
+	if !samePrefabColor(action.Props.Style.BackgroundColor, selectedBackground) {
+		t.Fatalf("expected themed selected action background")
+	}
+	label, ok := dom.FindByID("dialog-theme-confirm-label")
+	if !ok {
+		t.Fatalf("expected selected action label")
+	}
+	if !samePrefabColor(label.Props.Style.Color, selectedText) {
+		t.Fatalf("expected themed selected action text")
+	}
+}
+
+func TestHUDBarUsesThemeTintWhenTintUnset(t *testing.T) {
+	fill := color.RGBA{R: 116, G: 213, B: 166, A: 255}
+	track := color.RGBA{R: 30, G: 38, B: 50, A: 255}
+
+	theme := ebitenui.DefaultTheme()
+	theme.Components.HUDBar.Fill = fill
+	theme.Components.HUDBar.Track = track
+
+	node := prefabs.HUDBar(prefabs.HUDBarConfig{
+		ID:      "hud-theme",
+		Label:   "Shield",
+		Current: 40,
+		Max:     100,
+		Width:   180,
+		Theme:   &theme,
+	})
+
+	dom := ebitenui.New(node)
+	trackNode, ok := dom.FindByID("hud-theme-track")
+	if !ok {
+		t.Fatalf("expected hud track")
+	}
+	if !samePrefabColor(trackNode.Props.Style.BackgroundColor, track) {
+		t.Fatalf("expected themed hud track")
+	}
+	fillNode, ok := dom.FindByID("hud-theme-fill")
+	if !ok {
+		t.Fatalf("expected hud fill")
+	}
+	if !samePrefabColor(fillNode.Props.Style.BackgroundColor, fill) {
+		t.Fatalf("expected themed hud fill")
+	}
+}
+
 func countNodesByID(node *ebitenui.Node, id string) int {
 	if node == nil {
 		return 0
@@ -165,4 +271,13 @@ func countNodesByID(node *ebitenui.Node, id string) int {
 		count += countNodesByID(child, id)
 	}
 	return count
+}
+
+func samePrefabColor(got color.Color, want color.Color) bool {
+	if got == nil || want == nil {
+		return got == want
+	}
+	gotRGBA := color.NRGBAModel.Convert(got).(color.NRGBA)
+	wantRGBA := color.NRGBAModel.Convert(want).(color.NRGBA)
+	return gotRGBA == wantRGBA
 }
