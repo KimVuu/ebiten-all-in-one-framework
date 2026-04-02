@@ -148,7 +148,11 @@ _ = layout
 - 재사용 가능한 UI 디버그 어댑터: [../ebiten-ui-debug/README.md](../ebiten-ui-debug/README.md)
 - 아키텍처 기준: [../../../docs/architecture/ebiten-ui-architecture.md](../../../docs/architecture/ebiten-ui-architecture.md)
 - 로드맵: [../../../docs/architecture/ebiten-ui-roadmap.md](../../../docs/architecture/ebiten-ui-roadmap.md)
+- Theme spec: [../../../docs/architecture/ebiten-ui-theme-system.md](../../../docs/architecture/ebiten-ui-theme-system.md)
+- Reactive binding spec: [../../../docs/architecture/ebiten-ui-reactive-binding.md](../../../docs/architecture/ebiten-ui-reactive-binding.md)
+- Project integration spec: [../../../docs/architecture/ebiten-ui-project-integration.md](../../../docs/architecture/ebiten-ui-project-integration.md)
 - 스타일 규칙: [../../../docs/conventions/ebiten-ui-style.md](../../../docs/conventions/ebiten-ui-style.md)
+- 리뷰 체크리스트: [../../../docs/conventions/ebiten-ui-review-checklist.md](../../../docs/conventions/ebiten-ui-review-checklist.md)
 
 ## 현재 제약
 
