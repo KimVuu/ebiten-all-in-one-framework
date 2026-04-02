@@ -15,6 +15,15 @@ type showcaseLayoutState struct {
 	DetailScroll  float64
 }
 
+type showcaseBindings struct {
+	NameInput      *ebitenui.Ref[string]
+	Resolution     *ebitenui.Ref[string]
+	ResolutionOpen *ebitenui.Ref[bool]
+	Bio            *ebitenui.Ref[string]
+	Hardcore       *ebitenui.Ref[bool]
+	MusicVolume    *ebitenui.Ref[float64]
+}
+
 type showcaseCallbacks struct {
 	OnNavigate            func(string)
 	OnSidebarScrollChange func(float64)
@@ -40,6 +49,7 @@ type ShowcaseDemoContext struct {
 	Runtime       *ebitenui.Runtime
 	Registry      ShowcasePageRegistry
 	CurrentPageID string
+	Bindings      *showcaseBindings
 }
 
 func buildShowcasePageRegistry() ShowcasePageRegistry {
@@ -305,11 +315,17 @@ func addInputPages(add func(ShowcasePageSpec)) {
 		ID:          "inputs/input-field",
 		Title:       "InputField",
 		Group:       "inputs",
-		Description: "Single-line text input with focus, caret, and runtime-backed value storage.",
-		UsageNotes:  "Keep the `ID` stable so runtime text values survive rerenders and page switches.",
-		CodeExample: "ebitenui.InputField(ebitenui.InputFieldConfig{\n  ID: \"name-input\",\n  Label: \"Player Name\",\n  Value: \"Kim\",\n  Width: 260,\n})",
+		Description: "Single-line text input with focus, caret, and binding-backed value state.",
+		UsageNotes:  "Use `Ref[string]` when you want the page or project state to remain the source of truth across rerenders.",
+		CodeExample: "name := ebitenui.NewRef(\"Kim\")\nfield := ebitenui.InputField(ebitenui.InputFieldConfig{\n  ID: \"name-input\",\n  Label: \"Player Name\",\n  ValueBinding: name,\n  Width: 260,\n})",
 		DemoBuilder: func(ctx ShowcaseDemoContext) *ebitenui.Node {
-			return ebitenui.InputField(ebitenui.InputFieldConfig{ID: "name-input", Label: "Player Name", Value: "Kim", Width: 280, State: ebitenui.InteractionState{Focused: true}})
+			return ebitenui.InputField(ebitenui.InputFieldConfig{
+				ID:           "name-input",
+				Label:        "Player Name",
+				ValueBinding: ctx.Bindings.NameInput,
+				Width:        280,
+				State:        ebitenui.InteractionState{Focused: true},
+			})
 		},
 	})
 	add(ShowcasePageSpec{
@@ -317,11 +333,15 @@ func addInputPages(add func(ShowcasePageSpec)) {
 		Title:       "Dropdown",
 		Group:       "inputs",
 		Description: "Selectable option list for compact choice selection.",
-		UsageNotes:  "Use stable option IDs and read the selected text ID from runtime state when the page rerenders.",
-		CodeExample: "ebitenui.Dropdown(ebitenui.DropdownConfig{\n  ID: \"resolution-dropdown\",\n  Label: \"Resolution\",\n  SelectedText: \"1280x720\",\n  Open: true,\n  Options: []ebitenui.DropdownOption{{ID: \"resolution-720\", Label: \"1280x720\"}},\n})",
+		UsageNotes:  "Bind both the selected option ID and open state when the page should remember which list state is active.",
+		CodeExample: "selected := ebitenui.NewRef(\"resolution-720\")\nopen := ebitenui.NewRef(true)\ndropdown := ebitenui.Dropdown(ebitenui.DropdownConfig{\n  ID: \"resolution-dropdown\",\n  Label: \"Resolution\",\n  SelectedBinding: selected,\n  OpenBinding: open,\n  Options: []ebitenui.DropdownOption{{ID: \"resolution-720\", Label: \"1280x720\"}},\n})",
 		DemoBuilder: func(ctx ShowcaseDemoContext) *ebitenui.Node {
 			return ebitenui.Dropdown(ebitenui.DropdownConfig{
-				ID: "resolution-dropdown", Label: "Resolution", SelectedText: "1280x720", Width: 280, Open: true,
+				ID:              "resolution-dropdown",
+				Label:           "Resolution",
+				SelectedBinding: ctx.Bindings.Resolution,
+				OpenBinding:     ctx.Bindings.ResolutionOpen,
+				Width:           280,
 				Options: []ebitenui.DropdownOption{
 					{ID: "resolution-720", Label: "1280x720"},
 					{ID: "resolution-1080", Label: "1920x1080", State: ebitenui.InteractionState{Focused: true}},
@@ -334,11 +354,15 @@ func addInputPages(add func(ShowcasePageSpec)) {
 		Title:       "Textarea",
 		Group:       "inputs",
 		Description: "Multiline editable text surface for profile, note, and editor-like UI.",
-		UsageNotes:  "Pair `Textarea` with a fixed width panel and line-height so long text stays predictable.",
-		CodeExample: "ebitenui.Textarea(ebitenui.TextareaConfig{\n  ID: \"bio-textarea\",\n  Label: \"Profile\",\n  Value: \"Explorer of the ember valley.\",\n  Width: 320,\n})",
+		UsageNotes:  "Bind textareas when page-level state should stay authoritative while runtime still owns cursor and selection.",
+		CodeExample: "bio := ebitenui.NewRef(\"Explorer of the ember valley.\")\neditor := ebitenui.Textarea(ebitenui.TextareaConfig{\n  ID: \"bio-textarea\",\n  Label: \"Profile\",\n  ValueBinding: bio,\n  Width: 320,\n})",
 		DemoBuilder: func(ctx ShowcaseDemoContext) *ebitenui.Node {
 			return ebitenui.Textarea(ebitenui.TextareaConfig{
-				ID: "bio-textarea", Label: "Profile", Value: "Explorer of the ember valley.\nSpecializes in bows and traps.", Width: 320, State: ebitenui.InteractionState{Focused: true},
+				ID:           "bio-textarea",
+				Label:        "Profile",
+				ValueBinding: ctx.Bindings.Bio,
+				Width:        320,
+				State:        ebitenui.InteractionState{Focused: true},
 			})
 		},
 	})
@@ -455,10 +479,14 @@ func addStatusPages(add func(ShowcasePageSpec)) {
 		Title:       "Toggle",
 		Group:       "status",
 		Description: "Binary state switch for feature flags, gameplay options, and settings panels.",
-		UsageNotes:  "Use `Toggle` when the choice is on/off and the user should see the current state at a glance.",
-		CodeExample: "ebitenui.Toggle(ebitenui.ToggleConfig{\n  ID: \"difficulty-toggle\",\n  Label: \"Hardcore Mode\",\n  Checked: true,\n})",
+		UsageNotes:  "Use a `Ref[bool]` when multiple panels or prefabs need to react to the same on/off value.",
+		CodeExample: "hardcore := ebitenui.NewRef(true)\ntoggle := ebitenui.Toggle(ebitenui.ToggleConfig{\n  ID: \"difficulty-toggle\",\n  Label: \"Hardcore Mode\",\n  CheckedBinding: hardcore,\n})",
 		DemoBuilder: func(ctx ShowcaseDemoContext) *ebitenui.Node {
-			return ebitenui.Toggle(ebitenui.ToggleConfig{ID: "difficulty-toggle", Label: "Hardcore Mode", Checked: true})
+			return ebitenui.Toggle(ebitenui.ToggleConfig{
+				ID:             "difficulty-toggle",
+				Label:          "Hardcore Mode",
+				CheckedBinding: ctx.Bindings.Hardcore,
+			})
 		},
 	})
 	add(ShowcasePageSpec{
@@ -466,10 +494,17 @@ func addStatusPages(add func(ShowcasePageSpec)) {
 		Title:       "Slider",
 		Group:       "status",
 		Description: "Analog range control for volume, sensitivity, brightness, and progression knobs.",
-		UsageNotes:  "Pair slider labels with immediate feedback values when the exact amount matters.",
-		CodeExample: "ebitenui.Slider(ebitenui.SliderConfig{\n  ID: \"music-slider\",\n  Label: \"Music\",\n  Min: 0,\n  Max: 100,\n  Value: 65,\n})",
+		UsageNotes:  "Bind the numeric value when the slider should coordinate with other HUD, settings, or save-state surfaces.",
+		CodeExample: "music := ebitenui.NewRef(65.0)\nslider := ebitenui.Slider(ebitenui.SliderConfig{\n  ID: \"music-slider\",\n  Label: \"Music\",\n  Min: 0,\n  Max: 100,\n  ValueBinding: music,\n})",
 		DemoBuilder: func(ctx ShowcaseDemoContext) *ebitenui.Node {
-			return ebitenui.Slider(ebitenui.SliderConfig{ID: "music-slider", Label: "Music", Min: 0, Max: 100, Value: 65, Width: 300})
+			return ebitenui.Slider(ebitenui.SliderConfig{
+				ID:           "music-slider",
+				Label:        "Music",
+				Min:          0,
+				Max:          100,
+				ValueBinding: ctx.Bindings.MusicVolume,
+				Width:        300,
+			})
 		},
 	})
 }

@@ -118,6 +118,16 @@ type InputFieldConfig struct {
 - binding이 있으면 component는 그 값을 source of truth로 쓴다.
 - `OnChange`는 optional observer가 된다.
 
+v1 적용 필드:
+
+- `InputFieldConfig.ValueBinding`
+- `TextareaConfig.ValueBinding`
+- `CheckboxConfig.CheckedBinding`
+- `ToggleConfig.CheckedBinding`
+- `SliderConfig.ValueBinding`
+- `DropdownConfig.SelectedBinding`
+- `DropdownConfig.OpenBinding`
+
 ### uncontrolled
 
 - binding이 없으면 현재처럼 `Value`, `OnChange`, stable runtime ID 기반으로 동작한다.
@@ -183,6 +193,23 @@ interactive component는 아래 흐름을 따른다.
 3. showcase demo 중 대표 입력 페이지를 binding 기반으로 전환
 4. prefab 내부 derived value 일부를 `Computed`로 이동
 5. 문서와 README에서 controlled/uncontrolled 기준 고정
+
+## 현재 v1 반영 범위
+
+- `Value[T]`, `WritableValue[T]`, `Ref[T]`, `Computed[T]` 구현
+- 대표 controlled 경로 구현
+  - `InputField`
+  - `Textarea`
+  - `Checkbox`
+  - `Toggle`
+  - `Slider`
+  - `Dropdown`
+- showcase 대표 페이지 전환
+  - `inputs/input-field`
+  - `inputs/dropdown`
+  - `inputs/textarea`
+  - `status/toggle`
+  - `status/slider`
 
 ## 테스트 기준
 

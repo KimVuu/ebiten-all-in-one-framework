@@ -10,10 +10,13 @@ import (
 const showcaseScrollStep = 48
 
 func buildShowcaseDOM() *ebitenui.DOM {
-	return buildShowcaseDOMWithState(showcaseLayoutState{}, nil, nil)
+	return buildShowcaseDOMWithState(showcaseLayoutState{}, nil, nil, newShowcaseBindings())
 }
 
-func buildShowcaseDOMWithState(state showcaseLayoutState, callbacks *showcaseCallbacks, runtime *ebitenui.Runtime) *ebitenui.DOM {
+func buildShowcaseDOMWithState(state showcaseLayoutState, callbacks *showcaseCallbacks, runtime *ebitenui.Runtime, bindings *showcaseBindings) *ebitenui.DOM {
+	if bindings == nil {
+		bindings = newShowcaseBindings()
+	}
 	registry := buildShowcasePageRegistry()
 	router := ebitenui.NewPageRouter(ebitenui.PageRouterConfig{
 		Routes:        registry.Routes,
@@ -82,7 +85,7 @@ func buildShowcaseDOMWithState(state showcaseLayoutState, callbacks *showcaseCal
 				Gap:             16,
 				BackgroundColor: color.RGBA{R: 13, G: 18, B: 27, A: 255},
 				Sidebar:         buildShowcaseSidebar(router, registry, currentPageID, state.SidebarScroll, callbacks),
-				Content:         buildShowcaseDetail(router, registry, currentPage, currentPageID, state.DetailScroll, callbacks, runtime),
+				Content:         buildShowcaseDetail(router, registry, currentPage, currentPageID, state.DetailScroll, callbacks, runtime, bindings),
 			}),
 		),
 	)
@@ -306,7 +309,7 @@ func buildNavRoute(route ebitenui.PageRoute, currentPageID string, callbacks *sh
 	}, children...)
 }
 
-func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegistry, page ShowcasePageSpec, currentPageID string, scrollOffset float64, callbacks *showcaseCallbacks, runtime *ebitenui.Runtime) *ebitenui.Node {
+func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegistry, page ShowcasePageSpec, currentPageID string, scrollOffset float64, callbacks *showcaseCallbacks, runtime *ebitenui.Runtime, bindings *showcaseBindings) *ebitenui.Node {
 	scrollHandlers := ebitenui.EventHandlers{}
 	if callbacks != nil && callbacks.OnDetailScrollChange != nil {
 		scrollHandlers.OnScroll = func(ctx ebitenui.EventContext) {
@@ -322,6 +325,7 @@ func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegis
 		Runtime:       runtime,
 		Registry:      registry,
 		CurrentPageID: currentPageID,
+		Bindings:      bindings,
 	}
 	demo := page.DemoBuilder
 	var demoNode *ebitenui.Node
@@ -456,6 +460,17 @@ func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegis
 			),
 		),
 	)
+}
+
+func newShowcaseBindings() *showcaseBindings {
+	return &showcaseBindings{
+		NameInput:      ebitenui.NewRef("Kim"),
+		Resolution:     ebitenui.NewRef("resolution-720"),
+		ResolutionOpen: ebitenui.NewRef(true),
+		Bio:            ebitenui.NewRef("Explorer of the ember valley."),
+		Hardcore:       ebitenui.NewRef(true),
+		MusicVolume:    ebitenui.NewRef(65.0),
+	}
 }
 
 func breadcrumbText(routes []ebitenui.PageRoute) string {

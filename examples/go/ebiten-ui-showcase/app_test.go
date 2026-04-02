@@ -56,7 +56,7 @@ func TestBuildShowcaseDOMLaysOutSidebarAndDetail(t *testing.T) {
 func TestBuildShowcaseDOMShowsCurrentPageTitleCodeAndDemo(t *testing.T) {
 	dom := buildShowcaseDOMWithState(showcaseLayoutState{
 		CurrentPageID: "inputs/input-field",
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	title, ok := dom.FindByID("page-title")
 	if !ok || title.Text != "InputField" {
@@ -377,6 +377,9 @@ func TestDebugBridgeCommandsQueueScrollAndTextInput(t *testing.T) {
 	if got := game.runtime.TextValueOrDefault("name-input", "Kim"); got != "KimA" {
 		t.Fatalf("expected runtime text value to update, got %q", got)
 	}
+	if got := game.bindings.NameInput.Get(); got != "KimA" {
+		t.Fatalf("expected bound input value to update, got %q", got)
+	}
 }
 
 func TestDebugBridgeKeyEventRoutesShortcutsAndEditing(t *testing.T) {
@@ -442,5 +445,8 @@ func TestDebugBridgeKeyEventRoutesShortcutsAndEditing(t *testing.T) {
 
 	if got, want := game.runtime.TextValueOrDefault("name-input", "Kim"), "imZ"; got != want {
 		t.Fatalf("expected home/delete editing result, got %q want %q", got, want)
+	}
+	if got, want := game.bindings.NameInput.Get(), "imZ"; got != want {
+		t.Fatalf("expected binding editing result, got %q want %q", got, want)
 	}
 }

@@ -26,7 +26,7 @@ func TestShowcaseRegistryContainsGroupsAndLeafPages(t *testing.T) {
 func TestBuildShowcaseDOMBuildsSidebarAndDetailForCurrentPage(t *testing.T) {
 	dom := buildShowcaseDOMWithState(showcaseLayoutState{
 		CurrentPageID: "inputs/input-field",
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	for _, id := range []string{"showcase-root", "showcase-sidebar", "showcase-detail", "page-title", "page-code-block"} {
 		if _, ok := dom.FindByID(id); !ok {

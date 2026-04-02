@@ -35,6 +35,7 @@ type game struct {
 
 	registry    ShowcasePageRegistry
 	router      *ebitenui.PageRouter
+	bindings    *showcaseBindings
 	uiDebug     *ebitenuidebug.Adapter
 	debugBridge *ebitendebug.Bridge
 }
@@ -53,6 +54,7 @@ func newGame(debugMode bool) *game {
 		overlayEnabled: debugMode,
 		registry:       registry,
 		router:         router,
+		bindings:       newShowcaseBindings(),
 	}
 	g.renderer = renderer.New()
 	g.runtime = ebitenui.NewRuntime()
@@ -111,7 +113,7 @@ func (g *game) step(input ebitenui.InputSnapshot) error {
 		DetailScroll:  g.detailScroll,
 	}
 
-	dom := buildShowcaseDOMWithState(state, nil, g.runtime)
+	dom := buildShowcaseDOMWithState(state, nil, g.runtime, g.bindings)
 	layout := dom.Layout(viewport)
 	input = g.uiDebug.ApplyQueuedInput(frame, dom, g.runtime, layout, input)
 	input = g.applyHostKeyboardInput(dom, layout, input)
@@ -129,7 +131,7 @@ func (g *game) step(input ebitenui.InputSnapshot) error {
 		},
 	}
 
-	dom = buildShowcaseDOMWithState(state, callbacks, g.runtime)
+	dom = buildShowcaseDOMWithState(state, callbacks, g.runtime, g.bindings)
 	g.runtime.Update(dom, viewport, input)
 
 	if nextState.CurrentPageID == "" {
@@ -146,7 +148,7 @@ func (g *game) step(input ebitenui.InputSnapshot) error {
 	}
 
 	if pageChanged || nextState.SidebarScroll != state.SidebarScroll || nextState.DetailScroll != state.DetailScroll {
-		dom = buildShowcaseDOMWithState(nextState, callbacks, g.runtime)
+		dom = buildShowcaseDOMWithState(nextState, callbacks, g.runtime, g.bindings)
 		g.runtime.Update(dom, viewport, stabilizeShowcaseInput(input))
 	}
 
@@ -168,7 +170,7 @@ func (g *game) Draw(screen *ebiten.Image) {
 	g.mu.Unlock()
 
 	if dom == nil {
-		dom = buildShowcaseDOMWithState(g.currentState(), nil, g.runtime)
+		dom = buildShowcaseDOMWithState(g.currentState(), nil, g.runtime, g.bindings)
 	}
 
 	viewport := ebitenui.Viewport{
@@ -352,7 +354,7 @@ func (g *game) currentLayout() *ebitenui.LayoutNode {
 	}
 
 	if dom == nil {
-		dom = buildShowcaseDOMWithState(state, nil, g.runtime)
+		dom = buildShowcaseDOMWithState(state, nil, g.runtime, g.bindings)
 	}
 	if runtimeLayout != nil {
 		return runtimeLayout

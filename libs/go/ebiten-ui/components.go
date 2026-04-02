@@ -21,47 +21,51 @@ type IconConfig struct {
 }
 
 type TextareaConfig struct {
-	ID          string
-	Label       string
-	Value       string
-	Placeholder string
-	Width       float64
-	Height      float64
-	State       InteractionState
-	Theme       *Theme
-	OnChange    func(string)
-	OnSubmit    func(string)
+	ID           string
+	Label        string
+	Value        string
+	ValueBinding WritableValue[string]
+	Placeholder  string
+	Width        float64
+	Height       float64
+	State        InteractionState
+	Theme        *Theme
+	OnChange     func(string)
+	OnSubmit     func(string)
 }
 
 type CheckboxConfig struct {
-	ID       string
-	Label    string
-	Checked  bool
-	State    InteractionState
-	Theme    *Theme
-	OnChange func(bool)
+	ID             string
+	Label          string
+	Checked        bool
+	CheckedBinding WritableValue[bool]
+	State          InteractionState
+	Theme          *Theme
+	OnChange       func(bool)
 }
 
 type ToggleConfig struct {
-	ID       string
-	Label    string
-	Checked  bool
-	State    InteractionState
-	Theme    *Theme
-	OnChange func(bool)
+	ID             string
+	Label          string
+	Checked        bool
+	CheckedBinding WritableValue[bool]
+	State          InteractionState
+	Theme          *Theme
+	OnChange       func(bool)
 }
 
 type SliderConfig struct {
-	ID       string
-	Label    string
-	Min      float64
-	Max      float64
-	Value    float64
-	Width    float64
-	State    InteractionState
-	Tint     color.Color
-	Theme    *Theme
-	OnChange func(float64)
+	ID           string
+	Label        string
+	Min          float64
+	Max          float64
+	Value        float64
+	ValueBinding WritableValue[float64]
+	Width        float64
+	State        InteractionState
+	Tint         color.Color
+	Theme        *Theme
+	OnChange     func(float64)
 }
 
 type ScrollbarConfig struct {
@@ -81,28 +85,31 @@ type DropdownOption struct {
 }
 
 type DropdownConfig struct {
-	ID           string
-	Label        string
-	SelectedText string
-	Open         bool
-	Width        float64
-	Options      []DropdownOption
-	State        InteractionState
-	Theme        *Theme
-	OnOpenChange func(bool)
-	OnSelect     func(string)
+	ID              string
+	Label           string
+	SelectedText    string
+	SelectedBinding WritableValue[string]
+	Open            bool
+	OpenBinding     WritableValue[bool]
+	Width           float64
+	Options         []DropdownOption
+	State           InteractionState
+	Theme           *Theme
+	OnOpenChange    func(bool)
+	OnSelect        func(string)
 }
 
 type InputFieldConfig struct {
-	ID          string
-	Label       string
-	Value       string
-	Placeholder string
-	Width       float64
-	State       InteractionState
-	Theme       *Theme
-	OnChange    func(string)
-	OnSubmit    func(string)
+	ID           string
+	Label        string
+	Value        string
+	ValueBinding WritableValue[string]
+	Placeholder  string
+	Width        float64
+	State        InteractionState
+	Theme        *Theme
+	OnChange     func(string)
+	OnSubmit     func(string)
 }
 
 type RadioOption struct {
@@ -280,12 +287,13 @@ func Icon(cfg IconConfig) *Node {
 func Textarea(cfg TextareaConfig) *Node {
 	theme := ResolveTheme(cfg.Theme)
 	fieldTheme := theme.Components.Textarea
+	currentValue := textBindingValue(cfg.ValueBinding, cfg.Value)
 	height := cfg.Height
 	if height == 0 {
 		height = fieldTheme.Height
 	}
 
-	body := textLikeNodeWithTheme(theme, fieldTheme, cfg.Value, cfg.Placeholder, cfg.ID+"-body", cfg.ID+"-placeholder", true)
+	body := textLikeNodeWithTheme(theme, fieldTheme, currentValue, cfg.Placeholder, cfg.ID+"-body", cfg.ID+"-placeholder", true)
 	children := []*Node{}
 	if cfg.Label != "" {
 		children = append(children, textLabelWithTheme(fieldTheme, cfg.ID+"-label", cfg.Label))
@@ -293,7 +301,7 @@ func Textarea(cfg TextareaConfig) *Node {
 	children = append(children, Div(Props{
 		ID:        cfg.ID,
 		Focusable: true,
-		Handlers:  textInputHandlers(cfg.ID, cfg.Value, cfg.OnChange, cfg.OnSubmit, true),
+		Handlers:  textInputHandlers(cfg.ID, func() string { return textBindingValue(cfg.ValueBinding, cfg.Value) }, bindTextValue(cfg.ValueBinding, cfg.OnChange), cfg.OnSubmit, true),
 		State:     cfg.State,
 		Style:     fieldContainerStyleWithTheme(fieldTheme, cfg.Width, height),
 	},
@@ -315,14 +323,17 @@ func Checkbox(cfg CheckboxConfig) *Node {
 	theme := ResolveTheme(cfg.Theme)
 	checkboxTheme := theme.Components.Checkbox
 	state := cfg.State
-	state.Selected = cfg.Checked || state.Selected
+	state.Selected = boolBindingValue(cfg.CheckedBinding, cfg.Checked) || state.Selected
 	return InteractiveButton(Props{
 		ID:    cfg.ID,
 		State: state,
 		Handlers: EventHandlers{
 			OnClick: func(ctx EventContext) {
-				value := !ctx.Runtime.BoolValueOrDefault(cfg.ID, cfg.Checked)
+				value := !boolBindingOrRuntime(ctx.Runtime, cfg.ID, cfg.CheckedBinding, cfg.Checked)
 				ctx.Runtime.SetBoolValue(cfg.ID, value)
+				if cfg.CheckedBinding != nil {
+					cfg.CheckedBinding.Set(value)
+				}
 				if cfg.OnChange != nil {
 					cfg.OnChange(value)
 				}
@@ -352,7 +363,7 @@ func Toggle(cfg ToggleConfig) *Node {
 	theme := ResolveTheme(cfg.Theme)
 	toggleTheme := theme.Components.Toggle
 	state := cfg.State
-	state.Selected = cfg.Checked || state.Selected
+	state.Selected = boolBindingValue(cfg.CheckedBinding, cfg.Checked) || state.Selected
 
 	trackChildren := []*Node{}
 	if state.Selected {
@@ -382,8 +393,11 @@ func Toggle(cfg ToggleConfig) *Node {
 		State: state,
 		Handlers: EventHandlers{
 			OnClick: func(ctx EventContext) {
-				value := !ctx.Runtime.BoolValueOrDefault(cfg.ID, cfg.Checked)
+				value := !boolBindingOrRuntime(ctx.Runtime, cfg.ID, cfg.CheckedBinding, cfg.Checked)
 				ctx.Runtime.SetBoolValue(cfg.ID, value)
+				if cfg.CheckedBinding != nil {
+					cfg.CheckedBinding.Set(value)
+				}
 				if cfg.OnChange != nil {
 					cfg.OnChange(value)
 				}
@@ -419,11 +433,12 @@ func Toggle(cfg ToggleConfig) *Node {
 func Slider(cfg SliderConfig) *Node {
 	theme := ResolveTheme(cfg.Theme)
 	sliderTheme := theme.Components.Slider
+	currentValue := numberBindingValue(cfg.ValueBinding, cfg.Value)
 	width := cfg.Width
 	if width == 0 {
 		width = 200
 	}
-	ratio := clampRatio(cfg.Value-cfg.Min, cfg.Max-cfg.Min)
+	ratio := clampRatio(currentValue-cfg.Min, cfg.Max-cfg.Min)
 	fillWidth := width * ratio
 	thumbWidth := sliderTheme.ThumbWidth
 	restWidth := maxFloat(0, width-fillWidth-thumbWidth)
@@ -440,7 +455,7 @@ func Slider(cfg SliderConfig) *Node {
 			Gap:       sliderTheme.Gap,
 		},
 	},
-		statusTextWithTheme(theme, sliderTheme.Label, sliderTheme.Value, cfg.ID+"-label", cfg.Label, fmt.Sprintf("%.0f", cfg.Value)),
+		statusTextWithTheme(theme, sliderTheme.Label, sliderTheme.Value, cfg.ID+"-label", cfg.Label, fmt.Sprintf("%.0f", currentValue)),
 		Div(Props{
 			ID:       cfg.ID + "-track",
 			Handlers: sliderHandlers(cfg),
@@ -553,6 +568,12 @@ func Scrollbar(cfg ScrollbarConfig) *Node {
 func Dropdown(cfg DropdownConfig) *Node {
 	theme := ResolveTheme(cfg.Theme)
 	fieldTheme := theme.Components.Dropdown
+	selectedID := textBindingValue(cfg.SelectedBinding, "")
+	selectedText := cfg.SelectedText
+	if selectedID != "" {
+		selectedText = dropdownSelectedText(cfg.Options, selectedID, selectedText)
+	}
+	open := boolBindingValue(cfg.OpenBinding, cfg.Open)
 	children := []*Node{}
 	if cfg.Label != "" {
 		children = append(children, textLabelWithTheme(fieldTheme, cfg.ID+"-label", cfg.Label))
@@ -562,16 +583,19 @@ func Dropdown(cfg DropdownConfig) *Node {
 		State: cfg.State,
 		Handlers: EventHandlers{
 			OnClick: func(ctx EventContext) {
-				open := !ctx.Runtime.BoolValueOrDefault(cfg.ID+"-open", cfg.Open)
-				ctx.Runtime.SetBoolValue(cfg.ID+"-open", open)
+				nextOpen := !boolBindingOrRuntime(ctx.Runtime, cfg.ID+"-open", cfg.OpenBinding, cfg.Open)
+				ctx.Runtime.SetBoolValue(cfg.ID+"-open", nextOpen)
+				if cfg.OpenBinding != nil {
+					cfg.OpenBinding.Set(nextOpen)
+				}
 				if cfg.OnOpenChange != nil {
-					cfg.OnOpenChange(open)
+					cfg.OnOpenChange(nextOpen)
 				}
 			},
 		},
 		Style: fieldContainerStyleWithTheme(fieldTheme, cfg.Width, fieldTheme.Height),
 	},
-		Text(cfg.SelectedText, Props{
+		Text(selectedText, Props{
 			ID: cfg.ID + "-value",
 			Style: Style{
 				Width: Fill(),
@@ -584,7 +608,7 @@ func Dropdown(cfg DropdownConfig) *Node {
 		}),
 	))
 
-	if cfg.Open {
+	if open {
 		optionNodes := make([]*Node, 0, len(cfg.Options))
 		for _, option := range cfg.Options {
 			option := option
@@ -594,6 +618,9 @@ func Dropdown(cfg DropdownConfig) *Node {
 				Handlers: EventHandlers{
 					OnClick: func(ctx EventContext) {
 						ctx.Runtime.SetTextValue(cfg.ID+"-selected", option.ID)
+						if cfg.SelectedBinding != nil {
+							cfg.SelectedBinding.Set(option.ID)
+						}
 						if cfg.OnSelect != nil {
 							cfg.OnSelect(option.ID)
 						}
@@ -634,16 +661,17 @@ func Dropdown(cfg DropdownConfig) *Node {
 func InputField(cfg InputFieldConfig) *Node {
 	theme := ResolveTheme(cfg.Theme)
 	fieldTheme := theme.Components.InputField
+	currentValue := textBindingValue(cfg.ValueBinding, cfg.Value)
 	children := []*Node{}
 	if cfg.Label != "" {
 		children = append(children, textLabelWithTheme(fieldTheme, cfg.ID+"-label", cfg.Label))
 	}
 
-	valueNode := textLikeNodeWithTheme(theme, fieldTheme, cfg.Value, cfg.Placeholder, cfg.ID+"-value", cfg.ID+"-placeholder", false)
+	valueNode := textLikeNodeWithTheme(theme, fieldTheme, currentValue, cfg.Placeholder, cfg.ID+"-value", cfg.ID+"-placeholder", false)
 	children = append(children, Div(Props{
 		ID:        cfg.ID,
 		Focusable: true,
-		Handlers:  textInputHandlers(cfg.ID, cfg.Value, cfg.OnChange, cfg.OnSubmit, false),
+		Handlers:  textInputHandlers(cfg.ID, func() string { return textBindingValue(cfg.ValueBinding, cfg.Value) }, bindTextValue(cfg.ValueBinding, cfg.OnChange), cfg.OnSubmit, false),
 		State:     cfg.State,
 		Style:     fieldContainerStyleWithTheme(fieldTheme, cfg.Width, fieldTheme.Height),
 	},
@@ -1494,10 +1522,14 @@ func directionForOrientation(orientation Orientation) Direction {
 	return Column
 }
 
-func textInputHandlers(id string, initial string, onChange func(string), onSubmit func(string), multiline bool) EventHandlers {
+func textInputHandlers(id string, initial func() string, onChange func(string), onSubmit func(string), multiline bool) EventHandlers {
 	return EventHandlers{
 		OnFocus: func(ctx EventContext) {
-			value := ctx.Runtime.TextValueOrDefault(id, initial)
+			current := ""
+			if initial != nil {
+				current = initial()
+			}
+			value := ctx.Runtime.TextValueOrDefault(id, current)
 			ctx.Runtime.SetTextValue(id, value)
 			ctx.Runtime.SetTextCursor(id, len([]rune(value)))
 			ctx.Runtime.SetTextSelection(id, TextSelection{})
@@ -1508,26 +1540,26 @@ func textInputHandlers(id string, initial string, onChange func(string), onSubmi
 		OnShortcut: func(ctx EventContext) {
 			switch ctx.Shortcut {
 			case "ctrl+a", "cmd+a", "meta+a":
-				value := ctx.Runtime.TextValueOrDefault(id, initial)
+				value := ctx.Runtime.TextValueOrDefault(id, textInitialValue(initial))
 				length := len([]rune(value))
 				ctx.Runtime.SetTextCursor(id, length)
 				ctx.Runtime.SetTextSelection(id, TextSelection{Start: 0, End: length})
 			}
 		},
 		OnSelectAll: func(ctx EventContext) {
-			value := ctx.Runtime.TextValueOrDefault(id, initial)
+			value := ctx.Runtime.TextValueOrDefault(id, textInitialValue(initial))
 			length := len([]rune(value))
 			ctx.Runtime.SetTextCursor(id, length)
 			ctx.Runtime.SetTextSelection(id, TextSelection{Start: 0, End: length})
 		},
 		OnCursorMove: func(ctx EventContext) {
-			value, cursor, selection := ctx.Runtime.textValueAndCursor(id, initial)
+			value, cursor, selection := ctx.Runtime.textValueAndCursor(id, textInitialValue(initial))
 			cursor, selection = moveTextCursor(value, cursor, selection, ctx.Input, multiline)
 			ctx.Runtime.SetTextCursor(id, cursor)
 			ctx.Runtime.SetTextSelection(id, selection)
 		},
 		OnTextInput: func(ctx EventContext) {
-			value, cursor, selection := ctx.Runtime.textValueAndCursor(id, initial)
+			value, cursor, selection := ctx.Runtime.textValueAndCursor(id, textInitialValue(initial))
 			if ctx.Input.SelectAll || isSelectAllShortcut(ctx.Shortcut) {
 				selection = TextSelection{Start: 0, End: len([]rune(value))}
 				cursor = len([]rune(value))
@@ -1541,7 +1573,7 @@ func textInputHandlers(id string, initial string, onChange func(string), onSubmi
 			}
 		},
 		OnBackspace: func(ctx EventContext) {
-			value, cursor, selection := ctx.Runtime.textValueAndCursor(id, initial)
+			value, cursor, selection := ctx.Runtime.textValueAndCursor(id, textInitialValue(initial))
 			value, cursor = deleteTextBackward(value, cursor, selection, ctx.Input)
 			ctx.Runtime.SetTextValue(id, value)
 			ctx.Runtime.SetTextCursor(id, cursor)
@@ -1551,7 +1583,7 @@ func textInputHandlers(id string, initial string, onChange func(string), onSubmi
 			}
 		},
 		OnDelete: func(ctx EventContext) {
-			value, cursor, selection := ctx.Runtime.textValueAndCursor(id, initial)
+			value, cursor, selection := ctx.Runtime.textValueAndCursor(id, textInitialValue(initial))
 			value, cursor = deleteTextForward(value, cursor, selection, ctx.Input)
 			ctx.Runtime.SetTextValue(id, value)
 			ctx.Runtime.SetTextCursor(id, cursor)
@@ -1561,7 +1593,7 @@ func textInputHandlers(id string, initial string, onChange func(string), onSubmi
 			}
 		},
 		OnSubmit: func(ctx EventContext) {
-			value, cursor, selection := ctx.Runtime.textValueAndCursor(id, initial)
+			value, cursor, selection := ctx.Runtime.textValueAndCursor(id, textInitialValue(initial))
 			if multiline && !(ctx.Input.Control || ctx.Input.Meta) {
 				value, cursor = insertTextAtCursor(value, cursor, selection, "\n")
 				ctx.Runtime.SetTextValue(id, value)
@@ -1577,6 +1609,13 @@ func textInputHandlers(id string, initial string, onChange func(string), onSubmi
 			}
 		},
 	}
+}
+
+func textInitialValue(initial func() string) string {
+	if initial == nil {
+		return ""
+	}
+	return initial()
 }
 
 func insertTextAtCursor(value string, cursor int, selection TextSelection, text string) (string, int) {
@@ -1828,6 +1867,9 @@ func sliderHandlers(cfg SliderConfig) EventHandlers {
 		ratio := clampRatio(ctx.LocalX, width)
 		value := cfg.Min + (cfg.Max-cfg.Min)*ratio
 		ctx.Runtime.SetNumberValue(cfg.ID, value)
+		if cfg.ValueBinding != nil {
+			cfg.ValueBinding.Set(value)
+		}
 		if cfg.OnChange != nil {
 			cfg.OnChange(value)
 		}
@@ -1841,6 +1883,57 @@ func sliderHandlers(cfg SliderConfig) EventHandlers {
 		},
 		OnClick: apply,
 	}
+}
+
+func textBindingValue(binding Value[string], fallback string) string {
+	if binding != nil {
+		return binding.Get()
+	}
+	return fallback
+}
+
+func bindTextValue(binding WritableValue[string], observer func(string)) func(string) {
+	return func(value string) {
+		if binding != nil {
+			binding.Set(value)
+		}
+		if observer != nil {
+			observer(value)
+		}
+	}
+}
+
+func boolBindingValue(binding Value[bool], fallback bool) bool {
+	if binding != nil {
+		return binding.Get()
+	}
+	return fallback
+}
+
+func boolBindingOrRuntime(runtime *Runtime, id string, binding Value[bool], fallback bool) bool {
+	if binding != nil {
+		return binding.Get()
+	}
+	return runtime.BoolValueOrDefault(id, fallback)
+}
+
+func numberBindingValue(binding Value[float64], fallback float64) float64 {
+	if binding != nil {
+		return binding.Get()
+	}
+	return fallback
+}
+
+func dropdownSelectedText(options []DropdownOption, selectedID string, fallback string) string {
+	for _, option := range options {
+		if option.ID == selectedID {
+			return option.Label
+		}
+	}
+	if selectedID != "" {
+		return selectedID
+	}
+	return fallback
 }
 
 func trimLastRune(value string) string {

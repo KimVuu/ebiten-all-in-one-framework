@@ -250,6 +250,140 @@ func TestRuntimeTextareaUsesEnterForNewlineAndCtrlEnterForSubmit(t *testing.T) {
 	}
 }
 
+func TestRuntimeInputFieldUsesValueBinding(t *testing.T) {
+	name := ebitenui.NewRef("Kim")
+	dom := ebitenui.New(ebitenui.InputField(ebitenui.InputFieldConfig{
+		ID:           "bound-name",
+		Label:        "Name",
+		ValueBinding: name,
+		Width:        180,
+	}))
+
+	runtime := ebitenui.NewRuntime()
+	viewport := ebitenui.Viewport{Width: 220, Height: 80}
+	layout := runtime.Update(dom, viewport, ebitenui.InputSnapshot{})
+	field, ok := layout.FindByID("bound-name")
+	if !ok {
+		t.Fatalf("expected input field")
+	}
+
+	x := field.Frame.X + 12
+	y := field.Frame.Y + 12
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: x, PointerY: y, PointerDown: true})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: x, PointerY: y})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{Text: "A"})
+
+	if got, want := name.Get(), "KimA"; got != want {
+		t.Fatalf("binding mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestRuntimeToggleUsesCheckedBinding(t *testing.T) {
+	enabled := ebitenui.NewRef(false)
+	dom := ebitenui.New(ebitenui.Toggle(ebitenui.ToggleConfig{
+		ID:             "music-toggle",
+		Label:          "Music",
+		CheckedBinding: enabled,
+	}))
+
+	runtime := ebitenui.NewRuntime()
+	viewport := ebitenui.Viewport{Width: 220, Height: 60}
+
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 12, PointerY: 12, PointerDown: true})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 12, PointerY: 12})
+
+	if !enabled.Get() {
+		t.Fatalf("expected toggle binding to update")
+	}
+}
+
+func TestRuntimeSliderUsesValueBinding(t *testing.T) {
+	volume := ebitenui.NewRef(20.0)
+	dom := ebitenui.New(ebitenui.Slider(ebitenui.SliderConfig{
+		ID:           "bound-volume",
+		Label:        "Volume",
+		Min:          0,
+		Max:          100,
+		ValueBinding: volume,
+		Width:        200,
+	}))
+
+	runtime := ebitenui.NewRuntime()
+	viewport := ebitenui.Viewport{Width: 220, Height: 80}
+	layout := runtime.Update(dom, viewport, ebitenui.InputSnapshot{})
+	track, ok := layout.FindByID("bound-volume-track")
+	if !ok {
+		t.Fatalf("expected slider track")
+	}
+
+	targetX := track.Frame.X + track.Frame.Width*0.75
+	targetY := track.Frame.Y + track.Frame.Height*0.5
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: targetX, PointerY: targetY, PointerDown: true})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: targetX, PointerY: targetY})
+
+	if got := volume.Get(); got < 70 || got > 80 {
+		t.Fatalf("expected bound slider value near 75, got %v", got)
+	}
+}
+
+func TestRuntimeDropdownUsesBindings(t *testing.T) {
+	selected := ebitenui.NewRef("resolution-720")
+	open := ebitenui.NewRef(false)
+	dom := ebitenui.New(ebitenui.Dropdown(ebitenui.DropdownConfig{
+		ID:              "resolution-dropdown",
+		Label:           "Resolution",
+		SelectedBinding: selected,
+		OpenBinding:     open,
+		Width:           240,
+		Options: []ebitenui.DropdownOption{
+			{ID: "resolution-720", Label: "1280x720"},
+			{ID: "resolution-1080", Label: "1920x1080"},
+		},
+	}))
+
+	runtime := ebitenui.NewRuntime()
+	viewport := ebitenui.Viewport{Width: 280, Height: 120}
+
+	layout := runtime.Update(dom, viewport, ebitenui.InputSnapshot{})
+	trigger, ok := layout.FindByID("resolution-dropdown-trigger")
+	if !ok {
+		t.Fatalf("expected dropdown trigger")
+	}
+
+	x := trigger.Frame.X + 12
+	y := trigger.Frame.Y + 12
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: x, PointerY: y, PointerDown: true})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: x, PointerY: y})
+	if !open.Get() {
+		t.Fatalf("expected dropdown open binding to update")
+	}
+
+	openDOM := ebitenui.New(ebitenui.Dropdown(ebitenui.DropdownConfig{
+		ID:              "resolution-dropdown",
+		Label:           "Resolution",
+		SelectedBinding: selected,
+		OpenBinding:     open,
+		Width:           240,
+		Options: []ebitenui.DropdownOption{
+			{ID: "resolution-720", Label: "1280x720"},
+			{ID: "resolution-1080", Label: "1920x1080"},
+		},
+	}))
+	openLayout := runtime.Update(openDOM, viewport, ebitenui.InputSnapshot{})
+	option, ok := openLayout.FindByID("resolution-1080")
+	if !ok {
+		t.Fatalf("expected dropdown option")
+	}
+	optionX := option.Frame.X + 12
+	optionY := option.Frame.Y + 12
+	runtime.Update(openDOM, viewport, ebitenui.InputSnapshot{PointerX: optionX, PointerY: optionY, PointerDown: true})
+	runtime.Update(openDOM, viewport, ebitenui.InputSnapshot{PointerX: optionX, PointerY: optionY})
+
+	if got, want := selected.Get(), "resolution-1080"; got != want {
+		t.Fatalf("selected binding mismatch: got %q want %q", got, want)
+	}
+}
+
 func TestRuntimeDropdownDispatchesOpenAndSelect(t *testing.T) {
 	openStates := []bool{}
 	selected := []string{}
