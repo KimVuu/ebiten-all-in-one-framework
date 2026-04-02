@@ -61,7 +61,7 @@ func newGame(debugMode bool) *game {
 		width:          1280,
 		height:         720,
 		debugEnabled:   debugMode,
-		overlayEnabled: debugMode,
+		overlayEnabled: false,
 		themePreset:    "default",
 		registry:       registry,
 		router:         router,

@@ -326,6 +326,18 @@ func TestShowcaseUISnapshotIncludesExpandedMetadata(t *testing.T) {
 	}
 }
 
+func TestShowcaseDebugOverlayDefaultsOff(t *testing.T) {
+	game := newGame(true)
+	if game.overlayEnabled {
+		t.Fatalf("expected debug overlay to default off")
+	}
+
+	ui := game.uiSnapshot()
+	if got, want := ui.Root.Props["overlay"], false; got != want {
+		t.Fatalf("overlay prop mismatch: got %#v want %#v", got, want)
+	}
+}
+
 func TestShowcaseThemePresetButtonsSwitchThemeState(t *testing.T) {
 	game := newGame(true)
 	game.width = 1280
