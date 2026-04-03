@@ -1,0 +1,57 @@
+{
+  "nodes": [
+    {
+      "id": "start",
+      "name": "시작",
+      "kind": "start",
+      "next_ids": ["normal-a", "normal-b"]
+    },
+    {
+      "id": "normal-a",
+      "name": "갈림길 A",
+      "kind": "normal",
+      "encounter_id": "normal-a",
+      "next_ids": ["rest-1", "normal-c"]
+    },
+    {
+      "id": "normal-b",
+      "name": "갈림길 B",
+      "kind": "normal",
+      "encounter_id": "normal-b",
+      "next_ids": ["rest-1", "normal-c"]
+    },
+    {
+      "id": "normal-c",
+      "name": "매복",
+      "kind": "normal",
+      "encounter_id": "normal-c",
+      "next_ids": ["elite-1"]
+    },
+    {
+      "id": "rest-1",
+      "name": "야영지",
+      "kind": "rest",
+      "next_ids": ["elite-1"]
+    },
+    {
+      "id": "elite-1",
+      "name": "엘리트 관문",
+      "kind": "elite",
+      "encounter_id": "elite-1",
+      "next_ids": ["rest-2"]
+    },
+    {
+      "id": "rest-2",
+      "name": "성소",
+      "kind": "rest",
+      "next_ids": ["boss-1"]
+    },
+    {
+      "id": "boss-1",
+      "name": "보스",
+      "kind": "boss",
+      "encounter_id": "boss-1",
+      "next_ids": []
+    }
+  ]
+}

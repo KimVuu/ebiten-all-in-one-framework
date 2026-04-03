@@ -27,7 +27,11 @@ func (run *RunState) startRun() {
 	}
 	run.PartyUnits = party
 	run.CurrentNodeID = "start"
-	run.NextNodeIDs = append([]string(nil), actMapNodes["start"].NextIDs...)
+	if start, ok := mapNodeByID("start"); ok {
+		run.NextNodeIDs = append([]string(nil), start.NextIDs...)
+	} else {
+		run.NextNodeIDs = nil
+	}
 	run.Screen = ScreenMap
 	run.Outcome = OutcomeState{}
 	run.CurrentCombat = nil

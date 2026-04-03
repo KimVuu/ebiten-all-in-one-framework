@@ -1,0 +1,129 @@
+{
+  "encounters": [
+    {
+      "id": "normal-a",
+      "name": "일반전 A",
+      "kind": "normal",
+      "enemies": [
+        {
+          "id": "spike-wolf",
+          "name": "송곳늑대",
+          "max_hp": 14,
+          "patterns": [
+            { "id": "wolf-bite", "label": "물어뜯기", "attacks": [3] },
+            { "id": "wolf-rush", "label": "돌진", "attacks": [4] },
+            { "id": "wolf-hide", "label": "은신", "defense": 2 }
+          ]
+        },
+        {
+          "id": "shell-bug",
+          "name": "껍질벌레",
+          "max_hp": 20,
+          "patterns": [
+            { "id": "bug-shell", "label": "껍질", "defense": 4 },
+            { "id": "bug-sting", "label": "찌르기", "attacks": [3] },
+            { "id": "bug-shell-2", "label": "껍질", "defense": 3 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "normal-b",
+      "name": "일반전 B",
+      "kind": "normal",
+      "enemies": [
+        {
+          "id": "blade-imp-a",
+          "name": "칼날임프 A",
+          "max_hp": 16,
+          "patterns": [
+            { "id": "imp-slice", "label": "베기", "attacks": [4] },
+            { "id": "imp-flurry", "label": "난타", "attacks": [2, 2] },
+            { "id": "imp-guard", "label": "수비", "defense": 1 }
+          ]
+        },
+        {
+          "id": "blade-imp-b",
+          "name": "칼날임프 B",
+          "max_hp": 16,
+          "patterns": [
+            { "id": "imp-slice", "label": "베기", "attacks": [4] },
+            { "id": "imp-flurry", "label": "난타", "attacks": [2, 2] },
+            { "id": "imp-guard", "label": "수비", "defense": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "normal-c",
+      "name": "일반전 C",
+      "kind": "normal",
+      "enemies": [
+        {
+          "id": "shell-bug",
+          "name": "껍질벌레",
+          "max_hp": 20,
+          "patterns": [
+            { "id": "bug-shell", "label": "껍질", "defense": 4 },
+            { "id": "bug-sting", "label": "찌르기", "attacks": [3] },
+            { "id": "bug-shell-2", "label": "껍질", "defense": 3 }
+          ]
+        },
+        {
+          "id": "bat-seer",
+          "name": "박쥐예언자",
+          "max_hp": 12,
+          "patterns": [
+            { "id": "bat-peck", "label": "쪼기", "attacks": [2] },
+            { "id": "bat-veil", "label": "장막", "defense": 2 },
+            { "id": "bat-curse", "label": "저주", "attacks": [3] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "elite-1",
+      "name": "엘리트",
+      "kind": "elite",
+      "enemies": [
+        {
+          "id": "guardian-idol",
+          "name": "수호우상",
+          "max_hp": 24,
+          "patterns": [
+            { "id": "idol-guard", "label": "수비", "defense": 5 },
+            { "id": "idol-slam", "label": "강타", "attacks": [3] },
+            { "id": "idol-wall", "label": "장벽", "defense": 5 }
+          ]
+        },
+        {
+          "id": "blade-imp",
+          "name": "칼날임프",
+          "max_hp": 16,
+          "patterns": [
+            { "id": "imp-slice", "label": "베기", "attacks": [4] },
+            { "id": "imp-flurry", "label": "난타", "attacks": [2, 2] },
+            { "id": "imp-guard", "label": "수비", "defense": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "boss-1",
+      "name": "보스",
+      "kind": "boss",
+      "enemies": [
+        {
+          "id": "ruin-ogre",
+          "name": "폐허 오우거",
+          "max_hp": 58,
+          "patterns": [
+            { "id": "ogre-crush", "label": "분쇄", "attacks": [4, 4] },
+            { "id": "ogre-hide", "label": "숨기", "defense": 6 },
+            { "id": "ogre-roar", "label": "포효", "attacks": [7] }
+          ]
+        }
+      ]
+    }
+  ]
+}

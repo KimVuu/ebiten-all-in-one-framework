@@ -7,6 +7,7 @@
 - 6명 스타터 캐릭터 중 3명 파티 선택
 - 일반전, 휴식, 엘리트, 보스로 이어지는 고정 1막 지도
 - 파티 공유 방어, 무작위 피해 타깃, 묘지 재충전 주사위 순환
+- 게임 데이터는 [data](/Users/kimyechan/Develop/Game/Ebiten/ebtien-aio-framework/projects/dice-rogue/data)에 있는 JSON에서 읽고, 실행 파일에서는 임베드 fallback도 지원
 - UI 텍스트는 `ebitenui.SetTextFace(...)`로 `asset/fonts/NeoDunggeunmoPro-Regular.ttf`를 적용
 - 디버그 브리지, UI inspect/query/capture, `screenshots/dice-rogue` 스크린샷 저장
 

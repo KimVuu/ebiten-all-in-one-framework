@@ -1,0 +1,365 @@
+{
+  "characters": [
+    {
+      "id": "human-warrior",
+      "name": "인간 용사",
+      "role": "밸런스 딜러",
+      "max_hp": 24,
+      "dice": [
+        {
+          "id": "human-warrior-attack-1",
+          "name": "공격 주사위 1",
+          "kind": "attack",
+          "faces": [
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "4", "value": 4 },
+            { "kind": "value", "label": "5", "value": 5 }
+          ]
+        },
+        {
+          "id": "human-warrior-attack-2",
+          "name": "공격 주사위 2",
+          "kind": "attack",
+          "faces": [
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "4", "value": 4 },
+            { "kind": "value", "label": "5", "value": 5 }
+          ]
+        },
+        {
+          "id": "human-warrior-defense-1",
+          "name": "방어 주사위 1",
+          "kind": "defense",
+          "faces": [
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "4", "value": 4 }
+          ]
+        },
+        {
+          "id": "human-warrior-goddess-1",
+          "name": "여신의 주사위 1",
+          "kind": "skill",
+          "effect_id": "hero.goddess",
+          "faces": [
+            { "kind": "success", "label": "성공" },
+            { "kind": "success", "label": "성공" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" }
+          ]
+        },
+        {
+          "id": "human-warrior-goddess-2",
+          "name": "여신의 주사위 2",
+          "kind": "skill",
+          "effect_id": "hero.goddess",
+          "faces": [
+            { "kind": "success", "label": "성공" },
+            { "kind": "success", "label": "성공" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "human-guard",
+      "name": "인간 방패병",
+      "role": "탱커",
+      "max_hp": 32,
+      "dice": [
+        {
+          "id": "human-guard-defense-1",
+          "name": "방어 주사위 1",
+          "kind": "defense",
+          "faces": [
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "4", "value": 4 }
+          ]
+        },
+        {
+          "id": "human-guard-defense-2",
+          "name": "방어 주사위 2",
+          "kind": "defense",
+          "faces": [
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "4", "value": 4 }
+          ]
+        },
+        {
+          "id": "human-guard-defense-3",
+          "name": "방어 주사위 3",
+          "kind": "defense",
+          "faces": [
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "4", "value": 4 }
+          ]
+        },
+        {
+          "id": "human-guard-tank-1",
+          "name": "탱커의 주사위 1",
+          "kind": "skill",
+          "effect_id": "guard.tank",
+          "faces": [
+            { "kind": "success", "label": "성공" },
+            { "kind": "success", "label": "성공" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "human-priest",
+      "name": "인간 여신관",
+      "role": "힐러",
+      "max_hp": 20,
+      "dice": [
+        {
+          "id": "human-priest-priest-1",
+          "name": "신관의 주사위 1",
+          "kind": "skill",
+          "effect_id": "priest.heal",
+          "faces": [
+            { "kind": "success", "label": "성공" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" }
+          ]
+        },
+        {
+          "id": "human-priest-priest-2",
+          "name": "신관의 주사위 2",
+          "kind": "skill",
+          "effect_id": "priest.heal",
+          "faces": [
+            { "kind": "success", "label": "성공" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" }
+          ]
+        },
+        {
+          "id": "human-priest-priest-3",
+          "name": "신관의 주사위 3",
+          "kind": "skill",
+          "effect_id": "priest.heal",
+          "faces": [
+            { "kind": "success", "label": "성공" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "human-guide",
+      "name": "인간 길잡이",
+      "role": "서포터",
+      "max_hp": 18,
+      "dice": [
+        {
+          "id": "human-guide-info-1",
+          "name": "정보의 주사위 1",
+          "kind": "skill",
+          "effect_id": "guide.info",
+          "faces": [
+            { "kind": "success", "label": "성공" },
+            { "kind": "success", "label": "성공" },
+            { "kind": "success", "label": "성공" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "escape", "label": "도주" }
+          ]
+        },
+        {
+          "id": "human-guide-weakness-1",
+          "name": "약점의 주사위 1",
+          "kind": "skill",
+          "effect_id": "guide.weakness",
+          "faces": [
+            { "kind": "success", "label": "성공" },
+            { "kind": "success", "label": "성공" },
+            { "kind": "success", "label": "성공" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "escape", "label": "도주" }
+          ]
+        },
+        {
+          "id": "human-guide-escape-1",
+          "name": "도주의 주사위 1",
+          "kind": "skill",
+          "effect_id": "guide.escape",
+          "faces": [
+            { "kind": "escape", "label": "도주" },
+            { "kind": "escape", "label": "도주" },
+            { "kind": "escape", "label": "도주" },
+            { "kind": "escape", "label": "도주" },
+            { "kind": "escape", "label": "도주" },
+            { "kind": "failure", "label": "실패" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "elf-archer",
+      "name": "엘프 궁수",
+      "role": "딜러",
+      "max_hp": 20,
+      "dice": [
+        {
+          "id": "elf-archer-shot-1",
+          "name": "궁수의 주사위 1",
+          "kind": "skill",
+          "effect_id": "archer.shot",
+          "faces": [
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "4", "value": 4 },
+            { "kind": "critical", "label": "치명타" },
+            { "kind": "critical", "label": "치명타" }
+          ]
+        },
+        {
+          "id": "elf-archer-shot-2",
+          "name": "궁수의 주사위 2",
+          "kind": "skill",
+          "effect_id": "archer.shot",
+          "faces": [
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "4", "value": 4 },
+            { "kind": "critical", "label": "치명타" },
+            { "kind": "critical", "label": "치명타" }
+          ]
+        },
+        {
+          "id": "elf-archer-shot-3",
+          "name": "궁수의 주사위 3",
+          "kind": "skill",
+          "effect_id": "archer.shot",
+          "faces": [
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "4", "value": 4 },
+            { "kind": "critical", "label": "치명타" },
+            { "kind": "critical", "label": "치명타" }
+          ]
+        },
+        {
+          "id": "elf-archer-shot-4",
+          "name": "궁수의 주사위 4",
+          "kind": "skill",
+          "effect_id": "archer.shot",
+          "faces": [
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "4", "value": 4 },
+            { "kind": "critical", "label": "치명타" },
+            { "kind": "critical", "label": "치명타" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dwarf-smith",
+      "name": "드워프 대장장이",
+      "role": "서포팅 탱커",
+      "max_hp": 26,
+      "dice": [
+        {
+          "id": "dwarf-smith-attack-1",
+          "name": "공격 주사위 1",
+          "kind": "attack",
+          "faces": [
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "4", "value": 4 }
+          ]
+        },
+        {
+          "id": "dwarf-smith-defense-1",
+          "name": "방어 주사위 1",
+          "kind": "defense",
+          "faces": [
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "3", "value": 3 }
+          ]
+        },
+        {
+          "id": "dwarf-smith-defense-2",
+          "name": "방어 주사위 2",
+          "kind": "defense",
+          "faces": [
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "1", "value": 1 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "2", "value": 2 },
+            { "kind": "value", "label": "3", "value": 3 },
+            { "kind": "value", "label": "3", "value": 3 }
+          ]
+        },
+        {
+          "id": "dwarf-smith-forge-1",
+          "name": "대장장이의 주사위 1",
+          "kind": "skill",
+          "effect_id": "smith.forge",
+          "faces": [
+            { "kind": "success", "label": "성공" },
+            { "kind": "success", "label": "성공" },
+            { "kind": "success", "label": "성공" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" },
+            { "kind": "failure", "label": "실패" }
+          ]
+        }
+      ]
+    }
+  ]
+}
