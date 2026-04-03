@@ -13,6 +13,7 @@ import (
 	ebitendebug "github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-debug"
 	ebitenui "github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui"
 	ebitenuidebug "github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui-debug"
+	renderer "github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui/renderer"
 	gameui "github.com/kimyechan/ebiten-aio-framework/projects/dice-rogue/internal/ui"
 )
 
@@ -25,7 +26,7 @@ type Game struct {
 	tick         int
 	debugEnabled bool
 
-	renderer       *gameui.Renderer
+	renderer       *renderer.Renderer
 	runtime        *ebitenui.Runtime
 	dom            *ebitenui.DOM
 	lastInput      ebitenui.InputSnapshot
@@ -45,15 +46,12 @@ func newGame(config GameConfig) *Game {
 	if seed == 0 {
 		seed = 1
 	}
-	textRenderer, err := gameui.NewRenderer()
-	if err != nil {
-		textRenderer = gameui.NewFallbackRenderer()
-	}
+	_ = gameui.ApplyTextFace()
 	game := &Game{
 		width:          1280,
 		height:         720,
 		debugEnabled:   config.DebugEnabled,
-		renderer:       textRenderer,
+		renderer:       renderer.New(),
 		runtime:        ebitenui.NewRuntime(),
 		run:            newRunState(seed),
 		overlayEnabled: false,
@@ -243,7 +241,7 @@ func (game *Game) currentCombatModelLocked() gameui.CombatModel {
 	for _, die := range combat.AvailableDice {
 		available = append(available, gameui.DieView{
 			ID:     die.ID,
-			Label:  fmt.Sprintf("%s / %s", ownerLabel(die.OwnerID), die.Name),
+			Label:  fmt.Sprintf("%s / %s", diceOwnerLabel(die.OwnerID), die.Name),
 			Detail: dieDetail(die),
 		})
 	}
@@ -251,7 +249,7 @@ func (game *Game) currentCombatModelLocked() gameui.CombatModel {
 	for _, die := range combat.SelectedDice {
 		selected = append(selected, gameui.DieView{
 			ID:     die.Die.ID,
-			Label:  fmt.Sprintf("%s / %s", ownerLabel(die.Die.OwnerID), die.Die.Name),
+			Label:  fmt.Sprintf("%s / %s", diceOwnerLabel(die.Die.OwnerID), die.Die.Name),
 			Detail: dieDetail(die.Die),
 			Forced: die.Forced,
 		})
@@ -682,6 +680,25 @@ func ownerLabel(id string) string {
 		}
 	}
 	return strings.ReplaceAll(id, "-", " ")
+}
+
+func diceOwnerLabel(id string) string {
+	switch id {
+	case "human-warrior":
+		return "용사"
+	case "human-guard":
+		return "방패병"
+	case "human-priest":
+		return "여신관"
+	case "human-guide":
+		return "길잡이"
+	case "elf-archer":
+		return "궁수"
+	case "dwarf-smith":
+		return "대장장이"
+	default:
+		return ownerLabel(id)
+	}
 }
 
 func dieDetail(die DieSpec) string {

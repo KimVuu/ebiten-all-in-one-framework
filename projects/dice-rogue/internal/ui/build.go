@@ -221,7 +221,7 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	}
 
 	availableChildren := make([]*ebitenui.Node, 0, len(model.AvailableDice))
-	visibleDice, extraDice := limitDieViews(model.AvailableDice, 6)
+	visibleDice, extraDice := limitDieViews(model.AvailableDice, 4)
 	for _, die := range visibleDice {
 		detail := die.Detail
 		if die.Forced {
@@ -498,11 +498,11 @@ func button(id string, label string, detail string, selected bool, disabled bool
 	},
 		ebitenui.TextBlock(label, ebitenui.Props{
 			ID:    id + "-label",
-			Style: ebitenui.Style{Color: textStrong},
+			Style: ebitenui.Style{Width: ebitenui.Fill(), Color: textStrong},
 		}),
 		ebitenui.TextBlock(detail, ebitenui.Props{
 			ID:    id + "-detail",
-			Style: ebitenui.Style{Color: textMuted},
+			Style: ebitenui.Style{Width: ebitenui.Fill(), Color: textMuted},
 		}),
 	)
 }
@@ -529,11 +529,11 @@ func compactButton(id string, label string, detail string, onClick func()) *ebit
 	},
 		ebitenui.TextBlock(label, ebitenui.Props{
 			ID:    id + "-label",
-			Style: ebitenui.Style{Color: textStrong},
+			Style: ebitenui.Style{Width: ebitenui.Fill(), Color: textStrong},
 		}),
 		ebitenui.TextBlock(detail, ebitenui.Props{
 			ID:    id + "-detail",
-			Style: ebitenui.Style{Color: textMuted},
+			Style: ebitenui.Style{Width: ebitenui.Fill(), Color: textMuted},
 		}),
 	)
 }
@@ -553,11 +553,11 @@ func infoCard(id string, title string, detail string, textColor color.Color) *eb
 	},
 		ebitenui.TextBlock(title, ebitenui.Props{
 			ID:    id + "-title",
-			Style: ebitenui.Style{Color: textStrong},
+			Style: ebitenui.Style{Width: ebitenui.Fill(), Color: textStrong},
 		}),
 		ebitenui.TextBlock(detail, ebitenui.Props{
 			ID:    id + "-detail",
-			Style: ebitenui.Style{Color: textColor},
+			Style: ebitenui.Style{Width: ebitenui.Fill(), Color: textColor},
 		}),
 	)
 }
