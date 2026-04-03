@@ -326,27 +326,25 @@ func TestCombatEnemyActionsAppearInLogs(t *testing.T) {
 
 	summary := combat.resolveTurn()
 	logs := joinStrings(summary.Logs, " | ")
-	if !strings.Contains(logs, "raider 행동: 수비 4.") {
+	if !strings.Contains(logs, "raider 행동 수비 4, 적 방어막이 4가 되었다.") {
 		t.Fatalf("expected enemy defense log, got %q", logs)
 	}
-	if !strings.Contains(logs, "raider 행동: 공격 3.") {
+	if !strings.Contains(logs, "raider 행동 공격 3, 파티 방어막이 2 막았고, 인간 방패병에게 1 피해를 입혔다.") {
 		t.Fatalf("expected enemy action log, got %q", logs)
 	}
-	if strings.Index(logs, "raider 행동: 수비 4.") > strings.Index(logs, "raider 행동: 공격 3.") {
+	if strings.Index(logs, "raider 행동 수비 4, 적 방어막이 4가 되었다.") > strings.Index(logs, "raider 행동 공격 3, 파티 방어막이 2 막았고, 인간 방패병에게 1 피해를 입혔다.") {
 		t.Fatalf("expected defense log before attack log, got %q", logs)
-	}
-	if !strings.Contains(logs, "raider의 공격은 파티 방어막이 2 막았고, 인간 방패병에게 1 피해를 입혔다.") {
-		t.Fatalf("expected enemy target and shield log, got %q", logs)
 	}
 }
 
 func TestCombatPlayerAttackLogsTargetAndShieldAbsorb(t *testing.T) {
 	combat := newCombatStateWithRandom(
 		mustPartyUnits("human-warrior", "human-guard", "human-priest"),
-		testEncounter("normal-player-log", EncounterKindNormal, idleEnemy("dummy", 20)),
+		testEncounter("normal-player-log", EncounterKindNormal, enemyWithPatterns("dummy", 20,
+			EncounterPattern{ID: "brace", Label: "Brace", Defense: 2},
+		)),
 		newRandomSourceWithScript(1, 3, 0, 1, 0),
 	)
-	combat.EnemyDefense = 2
 
 	mustSelectDice(t, combat,
 		"human-warrior-attack-1",
@@ -356,8 +354,76 @@ func TestCombatPlayerAttackLogsTargetAndShieldAbsorb(t *testing.T) {
 
 	summary := combat.resolveTurn()
 	logs := joinStrings(summary.Logs, " | ")
-	if !strings.Contains(logs, "인간 용사의 공격은 적 방어막이 2 막았고, dummy에게 1 피해를 입혔다.") {
+	if !strings.Contains(logs, "인간 용사의 공격 주사위 1 결과 3, 적 방어막이 2 막았고, dummy에게 1 피해를 입혔다.") {
 		t.Fatalf("expected player target and shield log, got %q", logs)
+	}
+}
+
+func TestCombatLogsFollowDefenseSkillAttackOrder(t *testing.T) {
+	combat := newCombatStateWithRandom(
+		mustPartyUnits("human-warrior", "human-guard", "human-priest"),
+		testEncounter("normal-order", EncounterKindNormal, enemyWithPatterns("raider", 20,
+			EncounterPattern{ID: "brace-hit", Label: "Brace Hit", Attacks: []int{3}, Defense: 2},
+		)),
+		newRandomSourceWithScript(1, 3, 1, 0, 0, 0),
+	)
+
+	mustSelectDice(t, combat,
+		"human-warrior-attack-1",
+		"human-guard-defense-1",
+		"human-priest-priest-1",
+	)
+
+	summary := combat.resolveTurn()
+	logs := joinStrings(summary.Logs, " | ")
+	playerDefense := "인간 방패병의 방어 주사위 1 결과 2, 파티 방어막이 2가 되었다."
+	enemyDefense := "raider 행동 수비 2, 적 방어막이 2가 되었다."
+	skill := "인간 여신관의 신관의 주사위 1 결과 성공, 생존한 아군 전체가 2 회복되었다."
+	playerAttack := "인간 용사의 공격 주사위 1 결과 3, 적 방어막이 2 막았고, raider에게 1 피해를 입혔다."
+	enemyAttack := "raider 행동 공격 3, 파티 방어막이 2 막았고, 인간 용사에게 1 피해를 입혔다."
+
+	if strings.Index(logs, playerDefense) == -1 || strings.Index(logs, enemyDefense) == -1 || strings.Index(logs, skill) == -1 || strings.Index(logs, playerAttack) == -1 || strings.Index(logs, enemyAttack) == -1 {
+		t.Fatalf("expected ordered logs, got %q", logs)
+	}
+	if strings.Index(logs, playerDefense) > strings.Index(logs, skill) {
+		t.Fatalf("expected player defense before skill, got %q", logs)
+	}
+	if strings.Index(logs, enemyDefense) > strings.Index(logs, skill) {
+		t.Fatalf("expected enemy defense before skill, got %q", logs)
+	}
+	if strings.Index(logs, skill) > strings.Index(logs, playerAttack) {
+		t.Fatalf("expected skill before player attack, got %q", logs)
+	}
+	if strings.Index(logs, playerAttack) > strings.Index(logs, enemyAttack) {
+		t.Fatalf("expected player attack before enemy attack, got %q", logs)
+	}
+}
+
+func TestCombatDeadEnemyDoesNotActAfterBeingDefeated(t *testing.T) {
+	combat := newCombatStateWithRandom(
+		mustPartyUnits("human-warrior", "human-guard", "human-priest"),
+		testEncounter("normal-dead-enemy", EncounterKindNormal, enemyWithPatterns("raider", 1,
+			EncounterPattern{ID: "hit", Label: "Hit", Attacks: []int{3}},
+		)),
+		newRandomSourceWithScript(1, 3, 0, 1, 0),
+	)
+
+	mustSelectDice(t, combat,
+		"human-warrior-attack-1",
+		"human-guard-defense-1",
+		"human-priest-priest-1",
+	)
+
+	summary := combat.resolveTurn()
+	logs := joinStrings(summary.Logs, " | ")
+	if strings.Contains(logs, "raider 행동 공격 3") {
+		t.Fatalf("dead enemy should not act, got %q", logs)
+	}
+	if got := combat.playerUnit("human-warrior").HP; got != 24 {
+		t.Fatalf("expected warrior HP unchanged, got %d", got)
+	}
+	if summary.Outcome != CombatOutcomeVictory {
+		t.Fatalf("expected victory after defeating enemy before attack, got %q", summary.Outcome)
 	}
 }
 
