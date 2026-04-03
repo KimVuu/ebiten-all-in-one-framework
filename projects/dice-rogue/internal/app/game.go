@@ -20,11 +20,12 @@ import (
 type Game struct {
 	mu sync.RWMutex
 
-	width        int
-	height       int
-	frame        int
-	tick         int
-	debugEnabled bool
+	width              int
+	height             int
+	frame              int
+	tick               int
+	debugEnabled       bool
+	lastCombatLogCount int
 
 	renderer       *renderer.Renderer
 	runtime        *ebitenui.Runtime
@@ -107,13 +108,15 @@ func (game *Game) step(input ebitenui.InputSnapshot) error {
 	game.tick++
 	game.frame++
 	viewport := game.currentViewportLocked()
+	callbacks := game.callbacksLocked()
 
-	dom := gameui.BuildDOM(game.currentModelLocked(), game.callbacksLocked(), game.runtime)
-	layout := dom.Layout(viewport)
+	model := game.currentModelLocked()
+	dom, layout := game.buildDOMLocked(model, callbacks, viewport)
 	input = game.uiDebug.ApplyQueuedInput(game.frame, dom, game.runtime, layout, input)
 	game.runtime.Update(dom, viewport, input)
 
-	dom = gameui.BuildDOM(game.currentModelLocked(), game.callbacksLocked(), game.runtime)
+	model = game.currentModelLocked()
+	dom, _ = game.buildDOMLocked(model, callbacks, viewport)
 	if input.PointerDown {
 		game.applyRuntimeVisualStates(dom, input)
 	} else {
@@ -124,6 +127,43 @@ func (game *Game) step(input ebitenui.InputSnapshot) error {
 	game.dom = dom
 	game.lastInput = input
 	return nil
+}
+
+func (game *Game) buildDOMLocked(model gameui.Model, callbacks gameui.Callbacks, viewport ebitenui.Viewport) (*ebitenui.DOM, *ebitenui.LayoutNode) {
+	dom := gameui.BuildDOM(model, callbacks, game.runtime)
+	layout := dom.Layout(viewport)
+	if game.syncCombatLogScrollLocked(model, layout) {
+		dom = gameui.BuildDOM(model, callbacks, game.runtime)
+		layout = dom.Layout(viewport)
+	}
+	return dom, layout
+}
+
+func (game *Game) syncCombatLogScrollLocked(model gameui.Model, layout *ebitenui.LayoutNode) bool {
+	if model.CurrentScreen != string(ScreenCombat) {
+		game.lastCombatLogCount = 0
+		return false
+	}
+	logCount := len(model.Combat.Logs)
+	defer func() {
+		game.lastCombatLogCount = logCount
+	}()
+	if logCount == 0 || logCount <= game.lastCombatLogCount || game.runtime == nil || layout == nil {
+		return false
+	}
+	logLayout, ok := layout.FindByID("combat-log-scroll")
+	if !ok || logLayout == nil {
+		return false
+	}
+	maxOffset := logLayout.ContentHeight - logLayout.Frame.Height
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if game.runtime.NumberValueOrDefault("combat-log-scroll-offset", 0) == maxOffset {
+		return false
+	}
+	game.runtime.SetNumberValue("combat-log-scroll-offset", maxOffset)
+	return true
 }
 
 func (game *Game) Draw(screen *ebiten.Image) {

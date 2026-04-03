@@ -303,6 +303,50 @@ func TestGameSelectedDiceStayInAvailablePanelAndUsedPanelShowsResolvedDice(t *te
 	}
 }
 
+func TestGameCombatLogScrollMovesToBottomOnNewLogs(t *testing.T) {
+	game := newGame(GameConfig{Seed: 7})
+	game.width = DefaultWindowWidth
+	game.height = DefaultWindowHeight
+	game.run.Screen = ScreenCombat
+	game.run.CurrentCombat = newCombatStateWithRandom(
+		mustPartyUnits("human-warrior", "human-guard", "human-priest"),
+		testEncounter("ui-log-scroll", EncounterKindNormal, idleEnemy("dummy", 50)),
+		newRandomSourceWithScript(1),
+	)
+
+	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+		t.Fatalf("initial combat step failed: %v", err)
+	}
+	if got := game.runtime.NumberValueOrDefault("combat-log-scroll-offset", -1); got != 0 {
+		t.Fatalf("expected initial log offset to start at 0, got %v", got)
+	}
+
+	logs := make([]string, 0, 30)
+	for i := 0; i < 30; i++ {
+		logs = append(logs, strings.Repeat("전투 기록 ", 6))
+	}
+	game.run.CurrentCombat.Logs = logs
+
+	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+		t.Fatalf("log growth step failed: %v", err)
+	}
+
+	layout := game.currentLayout()
+	logLayout, ok := layout.FindByID("combat-log-scroll")
+	if !ok {
+		t.Fatalf("expected combat log scroll layout")
+	}
+	maxOffset := logLayout.ContentHeight - logLayout.Frame.Height
+	if maxOffset <= 0 {
+		t.Fatalf("expected overflowing combat log layout, got content=%v frame=%v", logLayout.ContentHeight, logLayout.Frame.Height)
+	}
+
+	got := game.runtime.NumberValueOrDefault("combat-log-scroll-offset", 0)
+	if diff := got - maxOffset; diff < -0.001 || diff > 0.001 {
+		t.Fatalf("expected combat log offset to match bottom: got %v want %v", got, maxOffset)
+	}
+}
+
 func clickAndStep(t *testing.T, game *Game, nodeID string) {
 	t.Helper()
 	layout := game.currentLayout()

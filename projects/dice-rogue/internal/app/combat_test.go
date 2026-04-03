@@ -376,14 +376,18 @@ func TestCombatLogsFollowDefenseSkillAttackOrder(t *testing.T) {
 
 	summary := combat.resolveTurn()
 	logs := joinStrings(summary.Logs, " | ")
+	turnMarker := "---턴1---"
 	playerDefense := "인간 방패병의 방어 주사위 1 결과 2, 파티 방어막이 2가 되었다."
 	enemyDefense := "raider 행동 수비 2, 적 방어막이 2가 되었다."
 	skill := "인간 여신관의 신관의 주사위 1 결과 성공, 생존한 아군 전체가 2 회복되었다."
 	playerAttack := "인간 용사의 공격 주사위 1 결과 3, 적 방어막이 2 막았고, raider에게 1 피해를 입혔다."
 	enemyAttack := "raider 행동 공격 3, 파티 방어막이 2 막았고, 인간 용사에게 1 피해를 입혔다."
 
-	if strings.Index(logs, playerDefense) == -1 || strings.Index(logs, enemyDefense) == -1 || strings.Index(logs, skill) == -1 || strings.Index(logs, playerAttack) == -1 || strings.Index(logs, enemyAttack) == -1 {
+	if strings.Index(logs, turnMarker) == -1 || strings.Index(logs, playerDefense) == -1 || strings.Index(logs, enemyDefense) == -1 || strings.Index(logs, skill) == -1 || strings.Index(logs, playerAttack) == -1 || strings.Index(logs, enemyAttack) == -1 {
 		t.Fatalf("expected ordered logs, got %q", logs)
+	}
+	if strings.Index(logs, turnMarker) > strings.Index(logs, playerDefense) {
+		t.Fatalf("expected turn marker before defense logs, got %q", logs)
 	}
 	if strings.Index(logs, playerDefense) > strings.Index(logs, skill) {
 		t.Fatalf("expected player defense before skill, got %q", logs)
@@ -424,6 +428,39 @@ func TestCombatDeadEnemyDoesNotActAfterBeingDefeated(t *testing.T) {
 	}
 	if summary.Outcome != CombatOutcomeVictory {
 		t.Fatalf("expected victory after defeating enemy before attack, got %q", summary.Outcome)
+	}
+}
+
+func TestCombatAddsTurnDividerEachTurn(t *testing.T) {
+	combat := newCombatStateWithRandom(
+		mustPartyUnits("human-warrior", "human-guard", "human-priest"),
+		testEncounter("normal-turn-divider", EncounterKindNormal, idleEnemy("dummy", 100)),
+		newRandomSourceWithScript(1, 3, 1, 0, 4, 2, 0, 0),
+	)
+
+	mustSelectDice(t, combat,
+		"human-warrior-attack-1",
+		"human-guard-defense-1",
+		"human-priest-priest-1",
+	)
+	combat.resolveTurn()
+
+	mustSelectDice(t, combat,
+		"human-warrior-attack-2",
+		"human-guard-defense-2",
+		"human-priest-priest-2",
+	)
+	combat.resolveTurn()
+
+	logs := joinStrings(combat.Logs, " | ")
+	if !strings.Contains(logs, "---턴1---") {
+		t.Fatalf("expected first turn divider, got %q", logs)
+	}
+	if !strings.Contains(logs, "---턴2---") {
+		t.Fatalf("expected second turn divider, got %q", logs)
+	}
+	if strings.Index(logs, "---턴1---") > strings.Index(logs, "---턴2---") {
+		t.Fatalf("expected turn dividers in order, got %q", logs)
 	}
 }
 

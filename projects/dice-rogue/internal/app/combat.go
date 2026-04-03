@@ -170,6 +170,7 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 	hadReveal := len(combat.RevealedNextPatterns) > 0
 	combat.Turn++
 	guideReveal := false
+	combat.pushLog(fmt.Sprintf("---턴%d---", combat.Turn))
 
 	finishTurn := func() TurnResolution {
 		if guideReveal {
