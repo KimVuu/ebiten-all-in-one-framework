@@ -12,6 +12,7 @@ import (
 type showcaseLayoutState struct {
 	CurrentPageID string
 	ThemePreset   string
+	FontPreset    string
 	SidebarScroll float64
 	DetailScroll  float64
 }
@@ -28,6 +29,7 @@ type showcaseBindings struct {
 type showcaseCallbacks struct {
 	OnNavigate            func(string)
 	OnThemePresetChange   func(string)
+	OnFontPresetChange    func(string)
 	OnSidebarScrollChange func(float64)
 	OnDetailScrollChange  func(float64)
 }
@@ -53,6 +55,7 @@ type ShowcaseDemoContext struct {
 	CurrentPageID string
 	Bindings      *showcaseBindings
 	ThemePresetID string
+	FontPresetID  string
 	Theme         ebitenui.Theme
 	Chrome        showcaseChrome
 }

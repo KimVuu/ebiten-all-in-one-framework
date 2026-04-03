@@ -17,6 +17,7 @@ func buildShowcaseDOMWithState(state showcaseLayoutState, callbacks *showcaseCal
 	if bindings == nil {
 		bindings = newShowcaseBindings()
 	}
+	fontPreset := applyShowcaseFontPreset(state.FontPreset)
 	registry := buildShowcasePageRegistry()
 	router := ebitenui.NewPageRouter(ebitenui.PageRouterConfig{
 		Routes:        registry.Routes,
@@ -58,7 +59,7 @@ func buildShowcaseDOMWithState(state showcaseLayoutState, callbacks *showcaseCal
 			BackgroundColor: preset.Chrome.RootBackground,
 		},
 	},
-		buildShowcaseHeader(currentPage, preset, callbacks),
+		buildShowcaseHeader(currentPage, preset, fontPreset, callbacks),
 		ebitenui.Main(ebitenui.Props{
 			ID: "showcase-main",
 			Semantic: ebitenui.SemanticSpec{
@@ -87,7 +88,7 @@ func buildShowcaseDOMWithState(state showcaseLayoutState, callbacks *showcaseCal
 				Gap:             16,
 				BackgroundColor: preset.Chrome.RootBackground,
 				Sidebar:         buildShowcaseSidebar(router, currentPageID, state.SidebarScroll, callbacks, preset.Chrome),
-				Content:         buildShowcaseDetail(router, registry, currentPage, currentPageID, state.DetailScroll, callbacks, runtime, bindings, preset),
+				Content:         buildShowcaseDetail(router, registry, currentPage, currentPageID, state.DetailScroll, callbacks, runtime, bindings, preset, fontPreset),
 			}),
 		),
 	)
@@ -102,7 +103,7 @@ func initialShowcasePageID(pageID string) string {
 	return pageID
 }
 
-func buildShowcaseHeader(page ShowcasePageSpec, preset showcaseThemePreset, callbacks *showcaseCallbacks) *ebitenui.Node {
+func buildShowcaseHeader(page ShowcasePageSpec, preset showcaseThemePreset, fontPreset showcaseFontPreset, callbacks *showcaseCallbacks) *ebitenui.Node {
 	chrome := preset.Chrome
 
 	return ebitenui.Header(ebitenui.Props{
@@ -144,6 +145,7 @@ func buildShowcaseHeader(page ShowcasePageSpec, preset showcaseThemePreset, call
 				Style: ebitenui.Style{Color: chrome.TextMuted},
 			}),
 			buildThemePresetSwitcher(preset, callbacks),
+			buildFontPresetSwitcher(fontPreset, preset, callbacks),
 		),
 		ebitenui.Span(ebitenui.Props{
 			ID: "header-badge",
@@ -157,6 +159,75 @@ func buildShowcaseHeader(page ShowcasePageSpec, preset showcaseThemePreset, call
 				Style: ebitenui.Style{Color: chrome.BadgeText},
 			}),
 		),
+	)
+}
+
+func buildFontPresetSwitcher(fontPreset showcaseFontPreset, preset showcaseThemePreset, callbacks *showcaseCallbacks) *ebitenui.Node {
+	chrome := preset.Chrome
+	buttons := make([]*ebitenui.Node, 0, len(showcaseFontPresets()))
+	for _, option := range showcaseFontPresets() {
+		option := option
+		active := option.ID == fontPreset.ID
+		background := chrome.PanelBackground
+		textColor := chrome.TextMuted
+		border := chrome.PanelBorder
+		if active {
+			background = chrome.AccentSoft
+			textColor = chrome.BadgeText
+			border = chrome.Accent
+		}
+		buttons = append(buttons, ebitenui.InteractiveButton(ebitenui.Props{
+			ID: "font-preset-" + option.ID,
+			Semantic: ebitenui.SemanticSpec{
+				Screen:  "ebiten-ui-showcase",
+				Element: "font-preset-" + option.ID,
+				Role:    "action",
+				Slot:    "font-preset",
+			},
+			State: ebitenui.InteractionState{
+				Selected: active,
+			},
+			Handlers: ebitenui.EventHandlers{
+				OnClick: func(ctx ebitenui.EventContext) {
+					if callbacks != nil && callbacks.OnFontPresetChange != nil {
+						callbacks.OnFontPresetChange(option.ID)
+					}
+				},
+			},
+			Style: ebitenui.Style{
+				Padding:         ebitenui.Insets{Top: 8, Right: 12, Bottom: 8, Left: 12},
+				BackgroundColor: background,
+				BorderColor:     border,
+				BorderWidth:     1,
+			},
+		},
+			ebitenui.Text(option.Title, ebitenui.Props{
+				ID:    "font-preset-label-" + option.ID,
+				Style: ebitenui.Style{Color: textColor},
+			}),
+		))
+	}
+
+	return ebitenui.Div(ebitenui.Props{
+		ID: "font-preset-switcher",
+		Style: ebitenui.Style{
+			Width:     ebitenui.Fill(),
+			Direction: ebitenui.Column,
+			Gap:       8,
+		},
+	},
+		ebitenui.Text("Font Presets", ebitenui.Props{
+			ID:    "font-preset-title",
+			Style: ebitenui.Style{Color: chrome.TextMuted},
+		}),
+		ebitenui.Div(ebitenui.Props{
+			ID: "font-preset-buttons",
+			Style: ebitenui.Style{
+				Width:     ebitenui.Fill(),
+				Direction: ebitenui.Row,
+				Gap:       10,
+			},
+		}, buttons...),
 	)
 }
 
@@ -379,7 +450,7 @@ func buildNavRoute(route ebitenui.PageRoute, currentPageID string, callbacks *sh
 	}, children...)
 }
 
-func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegistry, page ShowcasePageSpec, currentPageID string, scrollOffset float64, callbacks *showcaseCallbacks, runtime *ebitenui.Runtime, bindings *showcaseBindings, preset showcaseThemePreset) *ebitenui.Node {
+func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegistry, page ShowcasePageSpec, currentPageID string, scrollOffset float64, callbacks *showcaseCallbacks, runtime *ebitenui.Runtime, bindings *showcaseBindings, preset showcaseThemePreset, fontPreset showcaseFontPreset) *ebitenui.Node {
 	scrollHandlers := ebitenui.EventHandlers{}
 	if callbacks != nil && callbacks.OnDetailScrollChange != nil {
 		scrollHandlers.OnScroll = func(ctx ebitenui.EventContext) {
@@ -397,6 +468,7 @@ func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegis
 		CurrentPageID: currentPageID,
 		Bindings:      bindings,
 		ThemePresetID: preset.ID,
+		FontPresetID:  fontPreset.ID,
 		Theme:         preset.Theme,
 		Chrome:        preset.Chrome,
 	}
@@ -496,7 +568,7 @@ func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegis
 					}),
 					demoNode,
 				),
-				buildShowcaseLiveState(currentPageID, bindings, preset),
+				buildShowcaseLiveState(currentPageID, bindings, preset, fontPreset),
 				ebitenui.Div(ebitenui.Props{
 					ID:    "page-usage",
 					Style: detailSectionStyleForChrome(preset.Chrome),
@@ -536,7 +608,7 @@ func buildShowcaseDetail(router *ebitenui.PageRouter, registry ShowcasePageRegis
 	)
 }
 
-func buildShowcaseLiveState(currentPageID string, bindings *showcaseBindings, preset showcaseThemePreset) *ebitenui.Node {
+func buildShowcaseLiveState(currentPageID string, bindings *showcaseBindings, preset showcaseThemePreset, fontPreset showcaseFontPreset) *ebitenui.Node {
 	name := ebitenui.NewComputed(func() string {
 		return bindings.NameInput.Get()
 	})
@@ -576,6 +648,7 @@ func buildShowcaseLiveState(currentPageID string, bindings *showcaseBindings, pr
 		}),
 		liveStateRow("live-state-current-page", "Current page", currentPageID, preset),
 		liveStateRow("live-state-theme-preset", "Theme preset", preset.Title, preset),
+		liveStateRow("live-state-font-preset", "Font preset", fontPreset.Title, preset),
 		liveStateRow("live-state-name", "Player name", name.Get(), preset),
 		liveStateRow("live-state-resolution", "Resolution", resolution.Get(), preset),
 		liveStateRow("live-state-hardcore", "Hardcore", hardcore.Get(), preset),

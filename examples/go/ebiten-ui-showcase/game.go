@@ -32,6 +32,7 @@ type game struct {
 	sidebarScroll  float64
 	detailScroll   float64
 	themePreset    string
+	fontPreset     string
 	overlayEnabled bool
 
 	registry    ShowcasePageRegistry
@@ -63,6 +64,7 @@ func newGame(debugMode bool) *game {
 		debugEnabled:   debugMode,
 		overlayEnabled: false,
 		themePreset:    "default",
+		fontPreset:     "default",
 		registry:       registry,
 		router:         router,
 		bindings:       newShowcaseBindings(),
@@ -121,6 +123,7 @@ func (g *game) step(input ebitenui.InputSnapshot) error {
 	state := showcaseLayoutState{
 		CurrentPageID: g.router.CurrentPageID(),
 		ThemePreset:   g.themePreset,
+		FontPreset:    g.fontPreset,
 		SidebarScroll: g.sidebarScroll,
 		DetailScroll:  g.detailScroll,
 	}
@@ -138,6 +141,9 @@ func (g *game) step(input ebitenui.InputSnapshot) error {
 		},
 		OnThemePresetChange: func(themePreset string) {
 			nextState.ThemePreset = themePreset
+		},
+		OnFontPresetChange: func(fontPreset string) {
+			nextState.FontPreset = fontPreset
 		},
 		OnSidebarScrollChange: func(offset float64) {
 			nextState.SidebarScroll = offset
@@ -173,6 +179,7 @@ func (g *game) step(input ebitenui.InputSnapshot) error {
 	g.sidebarScroll = nextState.SidebarScroll
 	g.detailScroll = nextState.DetailScroll
 	g.themePreset = initialShowcaseThemePreset(nextState.ThemePreset)
+	g.fontPreset = initialShowcaseFontPreset(nextState.FontPreset)
 	g.dom = dom
 	g.lastInput = input
 	return nil
@@ -283,6 +290,7 @@ func (g *game) sceneSnapshot() ebitendebug.SceneSnapshot {
 			"tick":           g.tick,
 			"currentPageID":  g.router.CurrentPageID(),
 			"themePreset":    g.themePreset,
+			"fontPreset":     g.fontPreset,
 		},
 	}
 }
@@ -343,6 +351,7 @@ func (g *game) uiSnapshot() ebitendebug.UISnapshot {
 	snapshot.Root.Props["sidebarScroll"] = g.sidebarScroll
 	snapshot.Root.Props["detailScroll"] = g.detailScroll
 	snapshot.Root.Props["themePreset"] = g.themePreset
+	snapshot.Root.Props["fontPreset"] = g.fontPreset
 	g.mu.RUnlock()
 	return snapshot
 }
@@ -403,6 +412,7 @@ func (g *game) currentStateLocked() showcaseLayoutState {
 	return showcaseLayoutState{
 		CurrentPageID: g.router.CurrentPageID(),
 		ThemePreset:   g.themePreset,
+		FontPreset:    g.fontPreset,
 		SidebarScroll: g.sidebarScroll,
 		DetailScroll:  g.detailScroll,
 	}

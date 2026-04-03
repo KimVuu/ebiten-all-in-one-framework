@@ -102,6 +102,9 @@ func TestShowcaseSnapshotsIncludeCurrentPageMetadata(t *testing.T) {
 	if ui.Root.Props["currentPageID"] == "" {
 		t.Fatalf("expected currentPageID in ui snapshot props")
 	}
+	if ui.Root.Props["fontPreset"] == "" {
+		t.Fatalf("expected fontPreset in ui snapshot props")
+	}
 }
 
 func TestShowcaseDebugBridgeStartsWhenEnabled(t *testing.T) {
@@ -276,9 +279,15 @@ func TestShowcaseGameAppliesWheelScrollToSidebar(t *testing.T) {
 	game := newGame(false)
 	game.width = 1280
 	game.height = 720
+	if !game.router.Navigate("foundations/image") {
+		t.Fatalf("expected foundations/image route")
+	}
+	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+		t.Fatalf("initial step failed: %v", err)
+	}
 
 	initial := game.sidebarScroll
-	if err := game.step(ebitenui.InputSnapshot{PointerX: 120, PointerY: 220, ScrollY: -1}); err != nil {
+	if err := game.step(ebitenui.InputSnapshot{PointerX: 120, PointerY: 260, ScrollY: -3}); err != nil {
 		t.Fatalf("step failed: %v", err)
 	}
 
@@ -368,6 +377,39 @@ func TestShowcaseThemePresetButtonsSwitchThemeState(t *testing.T) {
 	ui := game.uiSnapshot()
 	if got, want := ui.Root.Props["themePreset"], "forest"; got != want {
 		t.Fatalf("expected ui snapshot theme preset %q, got %#v", want, got)
+	}
+}
+
+func TestShowcaseFontPresetButtonsSwitchFontState(t *testing.T) {
+	game := newGame(true)
+	game.width = 1280
+	game.height = 720
+
+	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+		t.Fatalf("step failed: %v", err)
+	}
+	if got, want := game.currentState().FontPreset, "default"; got != want {
+		t.Fatalf("expected default font preset, got %q", got)
+	}
+
+	result := game.debugBridgeLikeCommand("ui_click", map[string]any{
+		"node_id": "font-preset-neo-dunggeunmo",
+	})
+	if !result.Success {
+		t.Fatalf("expected font preset click to succeed: %#v", result)
+	}
+	for i := 0; i < 3; i++ {
+		if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+			t.Fatalf("font step failed: %v", err)
+		}
+	}
+
+	if got, want := game.currentState().FontPreset, "neo-dunggeunmo"; got != want {
+		t.Fatalf("expected neo-dunggeunmo preset, got %q", got)
+	}
+	ui := game.uiSnapshot()
+	if got, want := ui.Root.Props["fontPreset"], "neo-dunggeunmo"; got != want {
+		t.Fatalf("expected ui snapshot font preset %q, got %#v", want, got)
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/basicfont"
 )
 
 type Viewport struct {
@@ -653,7 +652,7 @@ func measureTextBlock(value string, style Style, availableWidth float64) (float6
 }
 
 func defaultFontFace() font.Face {
-	return basicfont.Face7x13
+	return TextFace()
 }
 
 func textLineHeight(style Style) float64 {

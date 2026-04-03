@@ -44,6 +44,8 @@ func TestBuildShowcaseDOMBuildsSidebarAndDetailForCurrentPage(t *testing.T) {
 		"theme-preset-default",
 		"theme-preset-forest",
 		"theme-preset-ember",
+		"font-preset-default",
+		"font-preset-neo-dunggeunmo",
 	} {
 		if _, ok := dom.FindByID(id); !ok {
 			t.Fatalf("expected node %q", id)
@@ -94,6 +96,9 @@ func TestShowcaseGameTracksCurrentPageInDebugState(t *testing.T) {
 	}
 	if ui.Root.Props["themePreset"] == "" {
 		t.Fatalf("expected themePreset in root props")
+	}
+	if ui.Root.Props["fontPreset"] == "" {
+		t.Fatalf("expected fontPreset in root props")
 	}
 }
 

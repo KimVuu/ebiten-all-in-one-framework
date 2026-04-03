@@ -11,6 +11,7 @@
 - 사이드바는 현재 그룹만 펼치는 collapsed navigation 구조
 - 각 페이지별 설명, 실제 데모, 사용법, 코드 예제 문자열
 - 헤더의 global theme preset switcher
+- 헤더의 global font preset switcher
 - detail 영역의 live state 패널
 - `foundations/theme` 페이지에서 default theme와 override theme 비교
 - `reactive/*` 페이지에서 `Ref`와 `Computed` 기반 상태 흐름 설명

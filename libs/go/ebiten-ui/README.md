@@ -19,6 +19,7 @@
 - `PageLayout` 기반의 고정 헤더 + 스크롤 본문 레이아웃 헬퍼
 - `PageRoute`, `PageRouter`, `PageScreen` 기반의 중첩 페이지 탐색 조립
 - `Theme`, `DefaultTheme`, `NewTheme`, `ResolveTheme` 기반 theme token 시스템
+- `TextFace`, `SetTextFace` 기반 전역 text face 설정
 - `Value[T]`, `WritableValue[T]`, `Ref[T]`, `Computed[T]` 기반 reactive binding primitive
 - ID 기반 DOM 조회
 - `LayoutNode`의 `ParentID`, `ContentBounds`, `ClipRect`, `ClickableRect`, `Overflow` 계산 필드
@@ -154,6 +155,17 @@ node := ebitenui.InputField(ebitenui.InputFieldConfig{
 ```
 
 v1에서는 대표 입력계와 대표 프리팹부터 theme token을 읽고, 나머지 컴포넌트는 같은 구조로 점진 확장한다.
+
+## Font Face 사용
+
+텍스트 측정과 렌더링은 같은 global text face를 공유한다.
+
+```go
+face := loadYourFontFace()
+ebitenui.SetTextFace(face)
+```
+
+설정하지 않으면 기본값은 `basicfont.Face7x13`이다.
 
 ## Reactive Binding 사용
 

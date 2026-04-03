@@ -8,7 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	ebitenui "github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui"
-	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/font"
 )
 
 type Renderer struct{}
@@ -87,11 +87,12 @@ func drawTextLines(screen *ebiten.Image, layout *ebitenui.LayoutNode, lines []st
 		textColor = color.White
 	}
 
-	ascent := basicfont.Face7x13.Metrics().Ascent.Ceil()
+	face := ebitenui.TextFace()
+	ascent := face.Metrics().Ascent.Ceil()
 	lineHeight := int(uidomLineHeight(layout.Node.Props.Style))
 	for i, line := range lines {
 		x := int(layout.Frame.X)
-		lineWidth := fontWidth(line)
+		lineWidth := fontWidth(face, line)
 		switch layout.Node.Props.Style.TextAlign {
 		case ebitenui.TextAlignCenter:
 			x = int(layout.Frame.X + maxFloat(0, (layout.Frame.Width-float64(lineWidth))*0.5))
@@ -100,7 +101,7 @@ func drawTextLines(screen *ebiten.Image, layout *ebitenui.LayoutNode, lines []st
 		}
 
 		y := int(layout.Frame.Y) + ascent + i*lineHeight
-		text.Draw(screen, line, basicfont.Face7x13, x, y, textColor)
+		text.Draw(screen, line, face, x, y, textColor)
 	}
 }
 
@@ -160,15 +161,15 @@ func intersects(a, b ebitenui.Rect) bool {
 	return a.X < b.X+b.Width && a.X+a.Width > b.X && a.Y < b.Y+b.Height && a.Y+a.Height > b.Y
 }
 
-func fontWidth(value string) int {
-	return text.BoundString(basicfont.Face7x13, value).Dx()
+func fontWidth(face font.Face, value string) int {
+	return text.BoundString(face, value).Dx()
 }
 
 func uidomLineHeight(style ebitenui.Style) float64 {
 	if style.LineHeight > 0 {
 		return style.LineHeight
 	}
-	return float64(basicfont.Face7x13.Metrics().Height.Ceil())
+	return float64(ebitenui.TextFace().Metrics().Height.Ceil())
 }
 
 func maxFloat(a, b float64) float64 {
