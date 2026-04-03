@@ -13,6 +13,20 @@ type attackPacket struct {
 	TargetID     string
 }
 
+type rolledDieResult struct {
+	Selected SelectedDie
+	Face     DieFace
+}
+
+type damageResolution struct {
+	SourceUnitID string
+	SourceDieID  string
+	TargetID     string
+	BaseDamage   int
+	Absorbed     int
+	DamageDealt  int
+}
+
 func newCombatStateWithRandom(party []UnitState, encounter EncounterDefinition, random *RandomSource) *CombatState {
 	combat := &CombatState{
 		NodeID:               encounter.ID,
@@ -153,13 +167,16 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 	attackPackets := make([]attackPacket, 0)
 	archerPacketIndexes := make([]int, 0)
 	archerCrits := 0
+	defenseLogs := make([]string, 0)
+	utilityLogs := make([]string, 0)
+	attackLogs := make([]string, 0)
 
 	for _, selected := range combat.SelectedDice {
 		die := selected.Die
 		face := die.Faces[combat.random.NextInt(len(die.Faces))]
-		combat.pushLog(fmt.Sprintf("%s 주사위 결과: %s.", die.Name, face.Label))
 		switch die.Kind {
 		case DieKindAttack:
+			attackLogs = append(attackLogs, fmt.Sprintf("%s 주사위 결과: %s.", die.Name, face.Label))
 			if face.Kind == FaceKindValue && face.Value > 0 {
 				attackPackets = append(attackPackets, attackPacket{
 					SourceUnitID: die.OwnerID,
@@ -168,19 +185,21 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 				})
 			}
 		case DieKindDefense:
+			defenseLogs = append(defenseLogs, fmt.Sprintf("%s 주사위 결과: %s.", die.Name, face.Label))
 			if face.Kind == FaceKindValue && face.Value > 0 {
 				allyDefense += face.Value
 			}
 		case DieKindSkill:
 			switch die.EffectID {
 			case effectHeroGoddess:
+				attackLogs = append(attackLogs, fmt.Sprintf("%s 주사위 결과: %s.", die.Name, face.Label))
 				if face.Kind == FaceKindSuccess {
 					unit := combat.playerUnit(die.OwnerID)
 					unit.Counters[counterHeroGoddess]++
-					combat.pushLog(fmt.Sprintf("%s의 여신 스택이 %d가 되었다.", ownerLabel(die.OwnerID), unit.Counters[counterHeroGoddess]))
+					attackLogs = append(attackLogs, fmt.Sprintf("%s의 여신 스택이 %d가 되었다.", ownerLabel(die.OwnerID), unit.Counters[counterHeroGoddess]))
 					for unit.Counters[counterHeroGoddess] >= 3 {
 						unit.Counters[counterHeroGoddess] -= 3
-						combat.pushLog(fmt.Sprintf("%s가 여신 폭발을 발동했다.", ownerLabel(die.OwnerID)))
+						attackLogs = append(attackLogs, fmt.Sprintf("%s가 여신 폭발을 발동했다.", ownerLabel(die.OwnerID)))
 						for _, enemyIdx := range combat.aliveEnemyUnits() {
 							attackPackets = append(attackPackets, attackPacket{
 								SourceUnitID: die.OwnerID,
@@ -192,11 +211,13 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 					}
 				}
 			case effectTankGuard:
+				defenseLogs = append(defenseLogs, fmt.Sprintf("%s 주사위 결과: %s.", die.Name, face.Label))
 				if face.Kind == FaceKindSuccess {
 					tankMultiplier = true
-					combat.pushLog("방패병이 이번 턴 방어 2배를 준비했다.")
+					defenseLogs = append(defenseLogs, "방패병이 이번 턴 방어 2배를 준비했다.")
 				}
 			case effectPriestHeal:
+				utilityLogs = append(utilityLogs, fmt.Sprintf("%s 주사위 결과: %s.", die.Name, face.Label))
 				if face.Kind == FaceKindSuccess {
 					for idx := range combat.PlayerUnits {
 						unit := &combat.PlayerUnits[idx]
@@ -205,17 +226,19 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 						}
 						unit.HP = minInt(unit.MaxHP, unit.HP+2)
 					}
-					combat.pushLog("여신관이 생존한 아군을 회복시켰다.")
+					utilityLogs = append(utilityLogs, "여신관이 생존한 아군을 회복시켰다.")
 				}
 			case effectGuideInfo:
+				utilityLogs = append(utilityLogs, fmt.Sprintf("%s 주사위 결과: %s.", die.Name, face.Label))
 				if face.Kind == FaceKindSuccess {
 					guideReveal = true
-					combat.pushLog("길잡이가 다음 적 패턴을 간파했다.")
+					utilityLogs = append(utilityLogs, "길잡이가 다음 적 패턴을 간파했다.")
 				}
 				if face.Kind == FaceKindEscape {
 					guideEscapeSupport = true
 				}
 			case effectGuideWeakness:
+				utilityLogs = append(utilityLogs, fmt.Sprintf("%s 주사위 결과: %s.", die.Name, face.Label))
 				if face.Kind == FaceKindSuccess {
 					combat.addEnemyStatus(StatusEffect{
 						ID:             statusWeakness,
@@ -223,16 +246,18 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 						Magnitude:      30,
 						RemainingTurns: 2,
 					})
-					combat.pushLog("길잡이가 적의 약점을 드러냈다.")
+					utilityLogs = append(utilityLogs, "길잡이가 적의 약점을 드러냈다.")
 				}
 				if face.Kind == FaceKindEscape {
 					guideEscapeSupport = true
 				}
 			case effectGuideEscape:
+				utilityLogs = append(utilityLogs, fmt.Sprintf("%s 주사위 결과: %s.", die.Name, face.Label))
 				if face.Kind == FaceKindEscape {
 					guideEscapeMain = true
 				}
 			case effectArcherShot:
+				attackLogs = append(attackLogs, fmt.Sprintf("%s 주사위 결과: %s.", die.Name, face.Label))
 				if face.Kind == FaceKindValue && face.Value > 0 {
 					attackPackets = append(attackPackets, attackPacket{
 						SourceUnitID: die.OwnerID,
@@ -245,9 +270,10 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 					archerCrits++
 				}
 			case effectSmithForge:
+				utilityLogs = append(utilityLogs, fmt.Sprintf("%s 주사위 결과: %s.", die.Name, face.Label))
 				if face.Kind == FaceKindSuccess {
 					smithBoost = 50
-					combat.pushLog("대장장이가 이번 턴 적이 받는 피해를 증폭시켰다.")
+					utilityLogs = append(utilityLogs, "대장장이가 이번 턴 적이 받는 피해를 증폭시켰다.")
 				}
 			}
 		}
@@ -261,10 +287,16 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 	if tankMultiplier {
 		allyDefense *= 2
 	}
+	for _, line := range defenseLogs {
+		combat.pushLog(line)
+	}
 	combat.AllyDefense = allyDefense
 	summary.GeneratedAllyDefense = allyDefense
 	if allyDefense > 0 {
-		combat.pushLog(fmt.Sprintf("파티 방어가 %d가 되었다.", allyDefense))
+		combat.pushLog(fmt.Sprintf("파티 방어막이 %d가 되었다.", allyDefense))
+	}
+	for _, line := range utilityLogs {
+		combat.pushLog(line)
 	}
 
 	if archerCrits > 0 {
@@ -272,10 +304,17 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 			attackPackets[idx].Value *= 2
 		}
 	}
+	for _, line := range attackLogs {
+		combat.pushLog(line)
+	}
 
 	damageBoost := smithBoost + combat.enemyDamageBoostPercent()
 	summary.DamageBoostPercent = damageBoost
-	summary.PlayerTargets = combat.applyPacketsToEnemies(attackPackets, damageBoost)
+	var playerResolutions []damageResolution
+	summary.PlayerTargets, playerResolutions = combat.applyPacketsToEnemies(attackPackets, damageBoost)
+	for _, resolution := range playerResolutions {
+		combat.pushLog(playerAttackLogLine(resolution))
+	}
 	combat.tickEnemyStatusesAfterPlayerPhase()
 	combat.EnemyDefense = 0
 
@@ -295,6 +334,12 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 
 	enemyDefense := 0
 	enemyTargets := make([]string, 0)
+	type enemyAction struct {
+		enemyID   string
+		enemyName string
+		pattern   EncounterPattern
+	}
+	enemyActions := make([]enemyAction, 0)
 	for _, enemyIdx := range combat.aliveEnemyUnits() {
 		enemy := &combat.EnemyUnits[enemyIdx]
 		if len(enemy.Patterns) == 0 {
@@ -302,19 +347,36 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 		}
 		pattern := enemy.Patterns[enemy.PatternIdx%len(enemy.Patterns)]
 		enemy.PatternIdx++
-		if actionLabel := enemyPatternActionLabel(pattern); actionLabel != "" {
-			combat.pushLog(fmt.Sprintf("%s 행동: %s.", enemy.Name, actionLabel))
-		}
 		enemyDefense += pattern.Defense
-		for _, value := range pattern.Attacks {
-			targetID := combat.applyPacketToPlayers(attackPacket{
-				SourceUnitID: enemy.ID,
+		enemyActions = append(enemyActions, enemyAction{
+			enemyID:   enemy.ID,
+			enemyName: enemy.Name,
+			pattern:   pattern,
+		})
+	}
+	summary.GeneratedEnemyDefense = enemyDefense
+	for _, action := range enemyActions {
+		if action.pattern.Defense > 0 {
+			combat.pushLog(fmt.Sprintf("%s 행동: 수비 %d.", action.enemyName, action.pattern.Defense))
+		}
+	}
+	if enemyDefense > 0 {
+		combat.pushLog(fmt.Sprintf("적 방어막이 %d가 되었다.", enemyDefense))
+	}
+	for _, action := range enemyActions {
+		if len(action.pattern.Attacks) == 0 {
+			continue
+		}
+		combat.pushLog(fmt.Sprintf("%s 행동: 공격 %s.", action.enemyName, joinAttackValues(action.pattern.Attacks)))
+		for _, value := range action.pattern.Attacks {
+			resolution := combat.applyPacketToPlayers(attackPacket{
+				SourceUnitID: action.enemyID,
 				Value:        value,
 			})
-			if targetID != "" {
-				combat.pushLog(fmt.Sprintf("%s이(가) %s에게 %d 피해를 입혔다.", enemy.Name, ownerLabel(targetID), value))
-				enemyTargets = append(enemyTargets, targetID)
+			if resolution.TargetID != "" {
+				enemyTargets = append(enemyTargets, resolution.TargetID)
 			}
+			combat.pushLog(enemyAttackLogLine(action.enemyName, resolution))
 			if len(combat.alivePlayerUnits()) == 0 {
 				break
 			}
@@ -325,7 +387,6 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 	}
 	combat.AllyDefense = 0
 	combat.EnemyDefense = enemyDefense
-	summary.GeneratedEnemyDefense = enemyDefense
 	summary.EnemyTargets = enemyTargets
 
 	if len(combat.alivePlayerUnits()) == 0 {
@@ -355,19 +416,39 @@ func (combat *CombatState) pushLog(line string) {
 	combat.Logs = append(combat.Logs, line)
 }
 
-func enemyPatternActionLabel(pattern EncounterPattern) string {
-	parts := make([]string, 0, 2)
-	if len(pattern.Attacks) > 0 {
-		values := make([]string, 0, len(pattern.Attacks))
-		for _, value := range pattern.Attacks {
-			values = append(values, fmt.Sprintf("%d", value))
-		}
-		parts = append(parts, fmt.Sprintf("공격 %s", strings.Join(values, ", ")))
+func joinAttackValues(values []int) string {
+	parts := make([]string, 0, len(values))
+	for _, value := range values {
+		parts = append(parts, fmt.Sprintf("%d", value))
 	}
-	if pattern.Defense > 0 {
-		parts = append(parts, fmt.Sprintf("수비 %d", pattern.Defense))
+	return strings.Join(parts, ", ")
+}
+
+func playerAttackLogLine(resolution damageResolution) string {
+	attacker := ownerLabel(resolution.SourceUnitID)
+	switch {
+	case resolution.Absorbed > 0 && resolution.DamageDealt > 0:
+		return fmt.Sprintf("%s의 공격은 적 방어막이 %d 막았고, %s에게 %d 피해를 입혔다.", attacker, resolution.Absorbed, ownerLabel(resolution.TargetID), resolution.DamageDealt)
+	case resolution.Absorbed > 0:
+		return fmt.Sprintf("%s의 공격은 적 방어막이 %d 막았다.", attacker, resolution.Absorbed)
+	case resolution.DamageDealt > 0:
+		return fmt.Sprintf("%s의 공격이 %s에게 %d 피해를 입혔다.", attacker, ownerLabel(resolution.TargetID), resolution.DamageDealt)
+	default:
+		return fmt.Sprintf("%s의 공격은 피해를 주지 못했다.", attacker)
 	}
-	return strings.Join(parts, " / ")
+}
+
+func enemyAttackLogLine(enemyName string, resolution damageResolution) string {
+	switch {
+	case resolution.Absorbed > 0 && resolution.DamageDealt > 0:
+		return fmt.Sprintf("%s의 공격은 파티 방어막이 %d 막았고, %s에게 %d 피해를 입혔다.", enemyName, resolution.Absorbed, ownerLabel(resolution.TargetID), resolution.DamageDealt)
+	case resolution.Absorbed > 0:
+		return fmt.Sprintf("%s의 공격은 파티 방어막이 %d 막았다.", enemyName, resolution.Absorbed)
+	case resolution.DamageDealt > 0:
+		return fmt.Sprintf("%s의 공격이 %s에게 %d 피해를 입혔다.", enemyName, ownerLabel(resolution.TargetID), resolution.DamageDealt)
+	default:
+		return fmt.Sprintf("%s의 공격은 피해를 주지 못했다.", enemyName)
+	}
 }
 
 func (combat *CombatState) addEnemyStatus(status StatusEffect) {
@@ -395,8 +476,9 @@ func (combat *CombatState) tickEnemyStatusesAfterPlayerPhase() {
 	combat.EnemyStatuses = filtered
 }
 
-func (combat *CombatState) applyPacketsToEnemies(packets []attackPacket, boostPercent int) []string {
+func (combat *CombatState) applyPacketsToEnemies(packets []attackPacket, boostPercent int) ([]string, []damageResolution) {
 	targets := make([]string, 0)
+	resolutions := make([]damageResolution, 0, len(packets))
 	for _, packet := range packets {
 		damage := packet.Value
 		if boostPercent > 0 {
@@ -405,12 +487,24 @@ func (combat *CombatState) applyPacketsToEnemies(packets []attackPacket, boostPe
 		if damage <= 0 {
 			continue
 		}
+		resolution := damageResolution{
+			SourceUnitID: packet.SourceUnitID,
+			SourceDieID:  packet.SourceDieID,
+			BaseDamage:   damage,
+		}
+		if packet.TargetID != "" {
+			if target := combat.resolveEnemyTarget(packet.TargetID); target != nil {
+				resolution.TargetID = target.ID
+			}
+		}
 		if combat.EnemyDefense > 0 {
 			absorbed := minInt(combat.EnemyDefense, damage)
 			combat.EnemyDefense -= absorbed
 			damage -= absorbed
+			resolution.Absorbed = absorbed
 		}
 		if damage <= 0 {
+			resolutions = append(resolutions, resolution)
 			continue
 		}
 		target := combat.resolveEnemyTarget(packet.TargetID)
@@ -418,33 +512,44 @@ func (combat *CombatState) applyPacketsToEnemies(packets []attackPacket, boostPe
 			break
 		}
 		combat.damageUnit(target, damage)
+		resolution.TargetID = target.ID
+		resolution.DamageDealt = damage
+		resolutions = append(resolutions, resolution)
 		targets = append(targets, target.ID)
 		if len(combat.aliveEnemyUnits()) == 0 {
 			break
 		}
 	}
-	return targets
+	return targets, resolutions
 }
 
-func (combat *CombatState) applyPacketToPlayers(packet attackPacket) string {
+func (combat *CombatState) applyPacketToPlayers(packet attackPacket) damageResolution {
 	damage := packet.Value
+	resolution := damageResolution{
+		SourceUnitID: packet.SourceUnitID,
+		SourceDieID:  packet.SourceDieID,
+		BaseDamage:   damage,
+	}
 	if damage <= 0 {
-		return ""
+		return resolution
 	}
 	if combat.AllyDefense > 0 {
 		absorbed := minInt(combat.AllyDefense, damage)
 		combat.AllyDefense -= absorbed
 		damage -= absorbed
+		resolution.Absorbed = absorbed
 	}
 	if damage <= 0 {
-		return ""
+		return resolution
 	}
 	target := combat.resolvePlayerTarget(packet.TargetID)
 	if target == nil {
-		return ""
+		return resolution
 	}
 	combat.damageUnit(target, damage)
-	return target.ID
+	resolution.TargetID = target.ID
+	resolution.DamageDealt = damage
+	return resolution
 }
 
 func (combat *CombatState) resolveEnemyTarget(targetID string) *UnitState {
