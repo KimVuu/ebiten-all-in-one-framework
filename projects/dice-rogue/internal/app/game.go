@@ -114,8 +114,13 @@ func (game *Game) step(input ebitenui.InputSnapshot) error {
 	game.runtime.Update(dom, viewport, input)
 
 	dom = gameui.BuildDOM(game.currentModelLocked(), game.callbacksLocked(), game.runtime)
+	if input.PointerDown {
+		game.applyRuntimeVisualStates(dom, input)
+	} else {
+		game.runtime.Update(dom, viewport, visualStateInput(input))
+	}
 	game.normalizeNonButtonFocus(dom)
-	game.applyRuntimeVisualStates(dom, input)
+	clearPassiveInteractionStates(dom.Root)
 	game.dom = dom
 	game.lastInput = input
 	return nil
@@ -137,6 +142,7 @@ func (game *Game) Draw(screen *ebiten.Image) {
 		game.mu.RUnlock()
 		game.normalizeNonButtonFocus(dom)
 		game.applyRuntimeVisualStates(dom, game.lastInput)
+		clearPassiveInteractionStates(dom.Root)
 	}
 
 	viewport := ebitenui.Viewport{
@@ -245,21 +251,43 @@ func (game *Game) currentCombatModelLocked() gameui.CombatModel {
 	for _, unit := range combat.EnemyUnits {
 		enemies = append(enemies, buildPartyMemberView(unit, false))
 	}
-	available := make([]gameui.DieView, 0, len(combat.AvailableDice))
+	availableByID := make(map[string]DieSpec, len(combat.AvailableDice))
 	for _, die := range combat.AvailableDice {
-		available = append(available, gameui.DieView{
-			ID:     die.ID,
-			Label:  fmt.Sprintf("%s / %s", diceOwnerLabel(die.OwnerID), die.Name),
-			Detail: dieDetail(die),
-		})
+		availableByID[die.ID] = die
 	}
-	selected := make([]gameui.DieView, 0, len(combat.SelectedDice))
+	selectedByID := make(map[string]SelectedDie, len(combat.SelectedDice))
 	for _, die := range combat.SelectedDice {
-		selected = append(selected, gameui.DieView{
-			ID:     die.Die.ID,
-			Label:  fmt.Sprintf("%s / %s", diceOwnerLabel(die.Die.OwnerID), die.Die.Name),
-			Detail: dieDetail(die.Die),
-			Forced: die.Forced,
+		selectedByID[die.Die.ID] = die
+	}
+	available := make([]gameui.DieView, 0, len(combat.AvailableDice)+len(combat.SelectedDice))
+	for _, unit := range combat.PlayerUnits {
+		for _, die := range unit.Dice {
+			if selected, ok := selectedByID[die.ID]; ok {
+				available = append(available, gameui.DieView{
+					ID:       die.ID,
+					Label:    fmt.Sprintf("%s / %s", diceOwnerLabel(die.OwnerID), die.Name),
+					Detail:   dieDetail(die),
+					Forced:   selected.Forced,
+					Selected: true,
+				})
+				continue
+			}
+			if availableDie, ok := availableByID[die.ID]; ok {
+				available = append(available, gameui.DieView{
+					ID:     availableDie.ID,
+					Label:  fmt.Sprintf("%s / %s", diceOwnerLabel(availableDie.OwnerID), availableDie.Name),
+					Detail: dieDetail(availableDie),
+				})
+			}
+		}
+	}
+	used := make([]gameui.DieView, 0, len(combat.GraveyardDice))
+	for _, die := range combat.GraveyardDice {
+		used = append(used, gameui.DieView{
+			ID:       die.ID,
+			Label:    fmt.Sprintf("%s / %s", diceOwnerLabel(die.OwnerID), die.Name),
+			Detail:   dieDetail(die),
+			Disabled: true,
 		})
 	}
 	patterns := make([]string, 0, len(combat.RevealedNextPatterns))
@@ -273,7 +301,7 @@ func (game *Game) currentCombatModelLocked() gameui.CombatModel {
 		Party:            party,
 		Enemies:          enemies,
 		AvailableDice:    available,
-		SelectedDice:     selected,
+		UsedDice:         used,
 		RevealedPatterns: patterns,
 		Logs:             logs,
 		CanResolve:       len(combat.SelectedDice) == 3,
@@ -590,6 +618,47 @@ func (game *Game) applyRuntimeVisualStates(dom *ebitenui.DOM, input ebitenui.Inp
 			node.Props.State = state
 		}
 	}
+}
+
+func clearPassiveInteractionStates(node *ebitenui.Node) {
+	if node == nil {
+		return
+	}
+	if node.Tag != ebitenui.TagButton {
+		state := node.Props.State
+		state.Hovered = false
+		state.Pressed = false
+		state.Focused = false
+		node.Props.State = state
+	}
+	for _, child := range node.Children {
+		clearPassiveInteractionStates(child)
+	}
+}
+
+func visualStateInput(input ebitenui.InputSnapshot) ebitenui.InputSnapshot {
+	input.ScrollX = 0
+	input.ScrollY = 0
+	input.Text = ""
+	input.Backspace = false
+	input.Delete = false
+	input.Home = false
+	input.End = false
+	input.Submit = false
+	input.Space = false
+	input.SelectAll = false
+	input.Shortcut = ""
+	input.Tab = false
+	input.Escape = false
+	input.ArrowUp = false
+	input.ArrowDown = false
+	input.ArrowLeft = false
+	input.ArrowRight = false
+	input.Shift = false
+	input.Control = false
+	input.Alt = false
+	input.Meta = false
+	return input
 }
 
 func (game *Game) collectInput() ebitenui.InputSnapshot {

@@ -302,6 +302,9 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 		}
 		pattern := enemy.Patterns[enemy.PatternIdx%len(enemy.Patterns)]
 		enemy.PatternIdx++
+		if actionLabel := enemyPatternActionLabel(pattern); actionLabel != "" {
+			combat.pushLog(fmt.Sprintf("%s 행동: %s.", enemy.Name, actionLabel))
+		}
 		enemyDefense += pattern.Defense
 		for _, value := range pattern.Attacks {
 			targetID := combat.applyPacketToPlayers(attackPacket{
@@ -350,6 +353,21 @@ func (combat *CombatState) pushLog(line string) {
 		return
 	}
 	combat.Logs = append(combat.Logs, line)
+}
+
+func enemyPatternActionLabel(pattern EncounterPattern) string {
+	parts := make([]string, 0, 2)
+	if len(pattern.Attacks) > 0 {
+		values := make([]string, 0, len(pattern.Attacks))
+		for _, value := range pattern.Attacks {
+			values = append(values, fmt.Sprintf("%d", value))
+		}
+		parts = append(parts, fmt.Sprintf("공격 %s", strings.Join(values, ", ")))
+	}
+	if pattern.Defense > 0 {
+		parts = append(parts, fmt.Sprintf("수비 %d", pattern.Defense))
+	}
+	return strings.Join(parts, " / ")
 }
 
 func (combat *CombatState) addEnemyStatus(status StatusEffect) {

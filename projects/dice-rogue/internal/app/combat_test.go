@@ -1,6 +1,9 @@
 package app
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestCombatSelectionForcesRemainingDiceThenRefills(t *testing.T) {
 	combat := newCombatStateWithRandom(
@@ -306,6 +309,28 @@ func TestCombatRandomTargetingSkipsDownedUnitsAndUsesDeterministicSeed(t *testin
 	}
 }
 
+func TestCombatEnemyActionsAppearInLogs(t *testing.T) {
+	combat := newCombatStateWithRandom(
+		mustPartyUnits("human-guard", "human-warrior", "human-priest"),
+		testEncounter("normal-enemy-log", EncounterKindNormal, enemyWithPatterns("raider", 40,
+			EncounterPattern{ID: "combo", Label: "Combo", Attacks: []int{3}, Defense: 4},
+		)),
+		newRandomSourceWithScript(0, 0, 1, 0),
+	)
+
+	mustSelectDice(t, combat,
+		"human-guard-defense-1",
+		"human-warrior-defense-1",
+		"human-priest-priest-1",
+	)
+
+	summary := combat.resolveTurn()
+	logs := joinStrings(summary.Logs, " | ")
+	if !strings.Contains(logs, "raider 행동: 공격 3 / 수비 4.") {
+		t.Fatalf("expected enemy action log, got %q", logs)
+	}
+}
+
 func mustPartyUnits(ids ...string) []UnitState {
 	units := make([]UnitState, 0, len(ids))
 	for _, id := range ids {
@@ -329,9 +354,9 @@ func mustSelectDice(t *testing.T, combat *CombatState, ids ...string) {
 
 func testEncounter(id string, kind EncounterKind, enemies ...UnitState) EncounterDefinition {
 	return EncounterDefinition{
-		ID:   id,
-		Name: id,
-		Kind: kind,
+		ID:      id,
+		Name:    id,
+		Kind:    kind,
 		Enemies: cloneUnits(enemies),
 	}
 }

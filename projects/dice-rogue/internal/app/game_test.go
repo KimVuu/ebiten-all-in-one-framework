@@ -191,11 +191,8 @@ func TestGameOnlyButtonsKeepHoverAndFocusState(t *testing.T) {
 		t.Fatalf("expected background click to leave no focus, got %q", got)
 	}
 
-	game.mu.RLock()
-	dieID := game.run.CurrentCombat.AvailableDice[0].ID
-	game.mu.RUnlock()
-
 	layout = game.currentLayout()
+	dieID := "human-warrior-attack-1"
 	dieLayout, ok := layout.FindByID("available-die-" + dieID)
 	if !ok {
 		t.Fatalf("expected available die button layout")
@@ -256,6 +253,53 @@ func TestGameButtonTriggersOnlyOnRelease(t *testing.T) {
 	}
 	if got, want := game.run.SelectedPartyIDs[0], "human-warrior"; got != want {
 		t.Fatalf("selected party mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestGameSelectedDiceStayInAvailablePanelAndUsedPanelShowsResolvedDice(t *testing.T) {
+	game := newGame(GameConfig{Seed: 7})
+	game.width = DefaultWindowWidth
+	game.height = DefaultWindowHeight
+
+	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+		t.Fatalf("initial step failed: %v", err)
+	}
+	clickAndStep(t, game, "party-option-human-warrior")
+	clickAndStep(t, game, "party-option-human-guard")
+	clickAndStep(t, game, "party-option-human-guide")
+	clickAndStep(t, game, "start-run-button")
+	clickAndStep(t, game, "map-node-normal-a")
+
+	firstDieID := "human-warrior-attack-1"
+	secondDieID := "human-warrior-attack-2"
+	thirdDieID := "human-warrior-defense-1"
+
+	clickAndStep(t, game, "available-die-"+firstDieID)
+
+	game.mu.RLock()
+	selectedCount := len(game.run.CurrentCombat.SelectedDice)
+	game.mu.RUnlock()
+	if got, want := selectedCount, 1; got != want {
+		t.Fatalf("expected combat state to keep one selected die, got %d", got)
+	}
+
+	selectedNode, ok := game.dom.FindByID("available-die-" + firstDieID)
+	if !ok {
+		t.Fatalf("expected selected die node to remain in available panel")
+	}
+	if !selectedNode.Props.State.Selected {
+		t.Fatalf("expected selected die node to show selected state")
+	}
+	if _, ok := game.dom.FindByID("used-dice-empty"); !ok {
+		t.Fatalf("expected used panel to remain empty before resolve")
+	}
+
+	clickAndStep(t, game, "available-die-"+secondDieID)
+	clickAndStep(t, game, "available-die-"+thirdDieID)
+	clickAndStep(t, game, "resolve-turn-button")
+
+	if _, ok := game.dom.FindByID("used-die-" + firstDieID); !ok {
+		t.Fatalf("expected resolved die to move into used panel")
 	}
 }
 

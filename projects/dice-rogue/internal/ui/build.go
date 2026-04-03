@@ -245,21 +245,29 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	availableChildren := make([]*ebitenui.Node, 0, len(model.AvailableDice))
 	for _, die := range model.AvailableDice {
 		detail := die.Detail
+		if die.Selected {
+			detail += " / 선택됨"
+		}
 		if die.Forced {
-			detail += " / 강제 선택"
+			detail += " / 강제"
 		}
 		availableChildren = append(availableChildren, compactButton(
 			fmt.Sprintf("available-die-%s", die.ID),
 			die.Label,
 			detail,
+			die.Selected,
+			die.Disabled,
 			buttonTriggerClick,
-			func(id string) func() {
+			func(id string, disabled bool) func() {
+				if disabled {
+					return nil
+				}
 				return func() {
 					if callbacks.OnSelectDie != nil {
 						callbacks.OnSelectDie(id)
 					}
 				}
-			}(die.ID),
+			}(die.ID, die.Selected || die.Disabled),
 		))
 	}
 	if len(availableChildren) == 0 {
@@ -271,24 +279,20 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 		))
 	}
 
-	usedChildren := make([]*ebitenui.Node, 0, len(model.SelectedDice))
-	for _, die := range model.SelectedDice {
-		detail := die.Detail + " / 선택됨"
-		if die.Forced {
-			detail = die.Detail + " / 강제 선택"
-		}
+	usedChildren := make([]*ebitenui.Node, 0, len(model.UsedDice))
+	for _, die := range model.UsedDice {
 		usedChildren = append(usedChildren, infoCard(
 			fmt.Sprintf("used-die-%s", die.ID),
 			die.Label,
-			detail,
+			die.Detail,
 			textMuted,
 		))
 	}
 	if len(usedChildren) == 0 {
 		usedChildren = append(usedChildren, infoCard(
 			"used-dice-empty",
-			"사용한 주사위 없음",
-			"주사위를 고르면 이 칸에 표시됩니다.",
+			"사용된 주사위 없음",
+			"턴이 끝나고 실제로 사용된 주사위만 이 칸에 모입니다.",
 			textMuted,
 		))
 	}
@@ -316,16 +320,17 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	leftWidth := columnWidths[0]
 	centerWidth := columnWidths[minInt(len(columnWidths)-1, 1)]
 	rightWidth := columnWidths[minInt(len(columnWidths)-1, 2)]
+	dicePanelHeight := combatDicePanelHeight(metrics)
 
-	buildAvailableDicePanel := func(panelWidth float64) *ebitenui.Node {
-		return panelWithHeight("available-dice-panel", "사용 가능 주사위", ebitenui.Fill(),
+	buildAvailableDicePanel := func(panelWidth float64, panelHeight float64) *ebitenui.Node {
+		return panelWithHeight("available-dice-panel", "사용 가능 주사위", ebitenui.Px(panelHeight),
 			persistentScrollView("available-dice-scroll", runtime,
 				cardColumnWithWidth("available-dice-grid", panelWidth, availableChildren...),
 			),
 		)
 	}
-	buildUsedDicePanel := func(panelWidth float64) *ebitenui.Node {
-		return panelWithHeight("used-dice-panel", "사용한 주사위", ebitenui.Fill(),
+	buildUsedDicePanel := func(panelWidth float64, panelHeight float64) *ebitenui.Node {
+		return panelWithHeight("used-dice-panel", "사용된 주사위", ebitenui.Px(panelHeight),
 			persistentScrollView("used-dice-scroll", runtime,
 				cardColumnWithWidth("used-dice-grid", panelWidth, usedChildren...),
 			),
@@ -350,8 +355,8 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 				Gap:       combatColGap,
 			},
 		},
-			buildAvailableDicePanel(leftWidth),
-			buildUsedDicePanel(leftWidth),
+			buildAvailableDicePanel(leftWidth, dicePanelHeight),
+			buildUsedDicePanel(leftWidth, dicePanelHeight),
 		),
 	)
 
@@ -570,16 +575,27 @@ func button(id string, label string, detail string, selected bool, disabled bool
 	)
 }
 
-func compactButton(id string, label string, detail string, trigger buttonTrigger, onAction func()) *ebitenui.Node {
+func compactButton(id string, label string, detail string, selected bool, disabled bool, trigger buttonTrigger, onAction func()) *ebitenui.Node {
+	background := color.RGBA{R: 34, G: 41, B: 59, A: 255}
+	if selected {
+		background = selectedColor
+	}
+	if disabled {
+		background = disabledColor
+	}
 	return ebitenui.InteractiveButton(ebitenui.Props{
-		ID:       id,
-		Handlers: bindButtonHandlers(false, trigger, onAction),
+		ID: id,
+		State: ebitenui.InteractionState{
+			Selected: selected,
+			Disabled: disabled,
+		},
+		Handlers: bindButtonHandlers(disabled, trigger, onAction),
 		Style: ebitenui.Style{
 			Width:           ebitenui.Fill(),
 			Direction:       ebitenui.Column,
 			Padding:         ebitenui.All(6),
 			Gap:             4,
-			BackgroundColor: color.RGBA{R: 34, G: 41, B: 59, A: 255},
+			BackgroundColor: background,
 			BorderColor:     borderColor,
 			BorderWidth:     1,
 		},
@@ -733,6 +749,10 @@ func combatColumnWidths(metrics layoutMetrics, columns int) []float64 {
 	center := innerWidth * 0.44
 	right := innerWidth - left - center
 	return []float64{left, center, right}
+}
+
+func combatDicePanelHeight(metrics layoutMetrics) float64 {
+	return maxFloat((metrics.viewportHeight-500)/2, 160)
 }
 
 func cardGrid(id string, metrics layoutMetrics, columns int, children ...*ebitenui.Node) *ebitenui.Node {

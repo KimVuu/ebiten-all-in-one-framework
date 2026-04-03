@@ -31,10 +31,12 @@ type MapModel struct {
 }
 
 type DieView struct {
-	ID     string
-	Label  string
-	Detail string
-	Forced bool
+	ID       string
+	Label    string
+	Detail   string
+	Forced   bool
+	Selected bool
+	Disabled bool
 }
 
 type CombatModel struct {
@@ -43,7 +45,7 @@ type CombatModel struct {
 	Party            []PartyMember
 	Enemies          []PartyMember
 	AvailableDice    []DieView
-	SelectedDice     []DieView
+	UsedDice         []DieView
 	RevealedPatterns []string
 	Logs             []string
 	CanResolve       bool
