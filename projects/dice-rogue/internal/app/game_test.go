@@ -35,6 +35,7 @@ func TestGameDebugSurfaceAndScreenFlow(t *testing.T) {
 	if containsTag(game.dom.Root, ebitenui.TagScrollView) {
 		t.Fatalf("expected no scroll view nodes on party selection screen")
 	}
+	assertNoLayoutOverflow(t, game)
 
 	if err := game.startDebugBridge("127.0.0.1:0"); err != nil {
 		t.Fatalf("startDebugBridge failed: %v", err)
@@ -89,6 +90,7 @@ func TestGameDebugSurfaceAndScreenFlow(t *testing.T) {
 	if containsTag(game.dom.Root, ebitenui.TagScrollView) {
 		t.Fatalf("expected no scroll view nodes on map screen")
 	}
+	assertNoLayoutOverflow(t, game)
 
 	clickAndStep(t, game, "map-node-normal-a")
 	if got, want := game.currentScreen(), ScreenCombat; got != want {
@@ -109,6 +111,7 @@ func TestGameDebugSurfaceAndScreenFlow(t *testing.T) {
 	if containsTag(game.dom.Root, ebitenui.TagScrollView) {
 		t.Fatalf("expected no scroll view nodes on combat screen")
 	}
+	assertNoLayoutOverflow(t, game)
 
 	ui := game.uiSnapshot()
 	if got, want := ui.Root.Props["currentScreen"], string(ScreenCombat); got != want {
@@ -154,4 +157,38 @@ func containsTag(node *ebitenui.Node, tag ebitenui.Tag) bool {
 		}
 	}
 	return false
+}
+
+func assertNoLayoutOverflow(t *testing.T, game *Game) {
+	t.Helper()
+
+	layout := game.currentLayout()
+	if layout == nil {
+		t.Fatalf("expected current layout")
+	}
+	report := ebitenui.ValidateLayout(layout, game.currentViewport(), ebitenui.ValidationOptions{})
+	for _, issue := range report.Issues {
+		switch issue.Code {
+		case ebitenui.IssueOutOfViewport, ebitenui.IssueOutOfParent, ebitenui.IssueTextOverflow:
+			t.Fatalf("unexpected layout issue: node=%s code=%s message=%s", issue.NodeID, issue.Code, issue.Message)
+		}
+	}
+	assertNodeOverflowFree(t, layout)
+}
+
+func assertNodeOverflowFree(t *testing.T, layout *ebitenui.LayoutNode) {
+	t.Helper()
+	if layout == nil {
+		return
+	}
+	if layout.Overflow.Any {
+		nodeID := ""
+		if layout.Node != nil {
+			nodeID = layout.Node.Props.ID
+		}
+		t.Fatalf("unexpected overflow on node %q: %#v", nodeID, layout.Overflow)
+	}
+	for _, child := range layout.Children {
+		assertNodeOverflowFree(t, child)
+	}
 }

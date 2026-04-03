@@ -21,22 +21,43 @@ var (
 	dangerColor     = color.RGBA{R: 176, G: 82, B: 82, A: 255}
 )
 
+const (
+	rootPadding  = 12.0
+	rootGap      = 10.0
+	panelPadding = 8.0
+	panelGap     = 6.0
+	gridGap      = 8.0
+	combatColGap = 10.0
+	minTileWidth = 180.0
+)
+
+type layoutMetrics struct {
+	viewportWidth  float64
+	viewportHeight float64
+	contentWidth   float64
+}
+
 func BuildDOM(model Model, callbacks Callbacks) *ebitenui.DOM {
+	metrics := resolveLayoutMetrics(model)
+	children := []*ebitenui.Node{
+		buildHeader(model),
+	}
+	if model.CurrentScreen != "combat" {
+		children = append(children, buildPartyRoster(model.PartyRoster, metrics))
+	}
+	children = append(children, buildCurrentScreen(model, callbacks, metrics))
+
 	root := ebitenui.Div(ebitenui.Props{
 		ID: "dice-rogue-root",
 		Style: ebitenui.Style{
 			Width:           ebitenui.Fill(),
 			Height:          ebitenui.Fill(),
 			Direction:       ebitenui.Column,
-			Padding:         ebitenui.All(20),
-			Gap:             14,
+			Padding:         ebitenui.All(rootPadding),
+			Gap:             rootGap,
 			BackgroundColor: rootBackground,
 		},
-	},
-		buildHeader(model),
-		buildPartyRoster(model.PartyRoster),
-		buildCurrentScreen(model, callbacks),
-	)
+	}, children...)
 	return ebitenui.New(root)
 }
 
@@ -53,7 +74,7 @@ func buildHeader(model Model) *ebitenui.Node {
 	)
 }
 
-func buildPartyRoster(roster []PartyMember) *ebitenui.Node {
+func buildPartyRoster(roster []PartyMember, metrics layoutMetrics) *ebitenui.Node {
 	children := []*ebitenui.Node{
 		ebitenui.Text("Party", ebitenui.Props{
 			ID:    "party-roster-title",
@@ -79,30 +100,25 @@ func buildPartyRoster(roster []PartyMember) *ebitenui.Node {
 				colorForUnit(member),
 			))
 		}
-		children = append(children, ebitenui.Grid(ebitenui.GridConfig{
-			ID:       "party-roster-grid",
-			Columns:  3,
-			Gap:      8,
-			Children: cards,
-		}))
+		children = append(children, cardGrid("party-roster-grid", metrics, gridColumnCount(metrics, 3), cards...))
 	}
 	return panel("party-roster-panel", "Roster", children...)
 }
 
-func buildCurrentScreen(model Model, callbacks Callbacks) *ebitenui.Node {
+func buildCurrentScreen(model Model, callbacks Callbacks, metrics layoutMetrics) *ebitenui.Node {
 	switch model.CurrentScreen {
 	case "map":
-		return buildMapScreen(model.Map, callbacks)
+		return buildMapScreen(model.Map, callbacks, metrics)
 	case "combat":
-		return buildCombatScreen(model.Combat, callbacks)
+		return buildCombatScreen(model.Combat, callbacks, metrics)
 	case "outcome":
 		return buildOutcomeScreen(model.Outcome, callbacks)
 	default:
-		return buildPartySelectionScreen(model.PartySelection, callbacks)
+		return buildPartySelectionScreen(model.PartySelection, callbacks, metrics)
 	}
 }
 
-func buildPartySelectionScreen(model PartySelectionModel, callbacks Callbacks) *ebitenui.Node {
+func buildPartySelectionScreen(model PartySelectionModel, callbacks Callbacks, metrics layoutMetrics) *ebitenui.Node {
 	children := []*ebitenui.Node{
 		ebitenui.TextBlock(fmt.Sprintf("Selected %d / 3", model.SelectedCount), ebitenui.Props{
 			ID:    "party-selection-count",
@@ -127,12 +143,7 @@ func buildPartySelectionScreen(model PartySelectionModel, callbacks Callbacks) *
 			}(candidate.ID),
 		))
 	}
-	children = append(children, ebitenui.Grid(ebitenui.GridConfig{
-		ID:       "party-selection-grid",
-		Columns:  2,
-		Gap:      10,
-		Children: gridChildren,
-	}))
+	children = append(children, cardGrid("party-selection-grid", metrics, gridColumnCount(metrics, 2), gridChildren...))
 	children = append(children, button(
 		"start-run-button",
 		"Start Run",
@@ -148,7 +159,7 @@ func buildPartySelectionScreen(model PartySelectionModel, callbacks Callbacks) *
 	return panel("party-selection-screen", "Party Selection", children...)
 }
 
-func buildMapScreen(model MapModel, callbacks Callbacks) *ebitenui.Node {
+func buildMapScreen(model MapModel, callbacks Callbacks, metrics layoutMetrics) *ebitenui.Node {
 	children := []*ebitenui.Node{
 		ebitenui.TextBlock("Choose the next route in the fixed first act.", ebitenui.Props{
 			ID:    "map-copy",
@@ -176,16 +187,11 @@ func buildMapScreen(model MapModel, callbacks Callbacks) *ebitenui.Node {
 			}(node.ID),
 		))
 	}
-	children = append(children, ebitenui.Grid(ebitenui.GridConfig{
-		ID:       "map-node-grid",
-		Columns:  2,
-		Gap:      10,
-		Children: gridChildren,
-	}))
+	children = append(children, cardGrid("map-node-grid", metrics, gridColumnCount(metrics, 2), gridChildren...))
 	return panel("map-screen", "Act Map", children...)
 }
 
-func buildCombatScreen(model CombatModel, callbacks Callbacks) *ebitenui.Node {
+func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMetrics) *ebitenui.Node {
 	children := []*ebitenui.Node{
 		ebitenui.Text(fmt.Sprintf("Turn %d", maxOne(model.Turn)), ebitenui.Props{
 			ID:    "combat-turn",
@@ -197,19 +203,6 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks) *ebitenui.Node {
 		}),
 	}
 
-	topRow := ebitenui.Div(ebitenui.Props{
-		ID: "combat-top-row",
-		Style: ebitenui.Style{
-			Width:     ebitenui.Fill(),
-			Direction: ebitenui.Row,
-			Gap:       10,
-		},
-	},
-		fixedWidthPanel("combat-party-panel", "Party", 560, buildUnitList(model.Party, "party-card")...),
-		fixedWidthPanel("combat-enemy-panel", "Enemies", 560, buildUnitList(model.Enemies, "enemy-card")...),
-	)
-	children = append(children, topRow)
-
 	revealChildren := []*ebitenui.Node{}
 	if len(model.RevealedPatterns) == 0 {
 		revealChildren = append(revealChildren, ebitenui.TextBlock("No revealed enemy intent.", ebitenui.Props{
@@ -218,16 +211,18 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks) *ebitenui.Node {
 		}))
 	} else {
 		for index, text := range model.RevealedPatterns {
-			revealChildren = append(revealChildren, ebitenui.Text(text, ebitenui.Props{
-				ID:    fmt.Sprintf("revealed-pattern-%d", index),
-				Style: ebitenui.Style{Color: accentColor},
-			}))
+			revealChildren = append(revealChildren, infoCard(
+				fmt.Sprintf("revealed-pattern-%d", index),
+				fmt.Sprintf("Enemy %d", index+1),
+				text,
+				accentColor,
+			))
 		}
 	}
-	children = append(children, panel("revealed-patterns-panel", "Revealed Patterns", revealChildren...))
 
 	availableChildren := make([]*ebitenui.Node, 0, len(model.AvailableDice))
-	for _, die := range model.AvailableDice {
+	visibleDice, extraDice := limitDieViews(model.AvailableDice, 6)
+	for _, die := range visibleDice {
 		detail := die.Detail
 		if die.Forced {
 			detail += " / forced"
@@ -253,14 +248,6 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks) *ebitenui.Node {
 			textMuted,
 		))
 	}
-	children = append(children, panel("available-dice-panel", "Available Dice",
-		ebitenui.Grid(ebitenui.GridConfig{
-			ID:       "available-dice-grid",
-			Columns:  3,
-			Gap:      8,
-			Children: availableChildren,
-		}),
-	))
 
 	selectedChildren := make([]*ebitenui.Node, 0, len(model.SelectedDice))
 	for _, die := range model.SelectedDice {
@@ -283,17 +270,10 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks) *ebitenui.Node {
 			textMuted,
 		))
 	}
-	children = append(children, panel("selected-dice-panel", "Selected Dice",
-		ebitenui.Grid(ebitenui.GridConfig{
-			ID:       "selected-dice-grid",
-			Columns:  3,
-			Gap:      8,
-			Children: selectedChildren,
-		}),
-	))
 
 	logChildren := make([]*ebitenui.Node, 0, len(model.Logs))
-	if len(model.Logs) == 0 {
+	visibleLogs, extraLogs := limitStrings(model.Logs, 4)
+	if len(visibleLogs) == 0 {
 		logChildren = append(logChildren, infoCard(
 			"combat-log-empty",
 			"No logs yet",
@@ -301,7 +281,7 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks) *ebitenui.Node {
 			textMuted,
 		))
 	} else {
-		for index, line := range model.Logs {
+		for index, line := range visibleLogs {
 			logChildren = append(logChildren, infoCard(
 				fmt.Sprintf("combat-log-%d", index),
 				fmt.Sprintf("Log %d", index+1),
@@ -310,26 +290,62 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks) *ebitenui.Node {
 			))
 		}
 	}
-	children = append(children, panel("combat-log-panel", "Log",
-		ebitenui.Grid(ebitenui.GridConfig{
-			ID:       "combat-log-grid",
-			Columns:  2,
-			Gap:      8,
-			Children: logChildren,
-		}),
-	))
-	children = append(children, button(
-		"resolve-turn-button",
-		"Resolve Turn",
-		"Resolve the selected three dice, then let enemies act.",
-		false,
-		!model.CanResolve,
-		func() {
-			if callbacks.OnResolveTurn != nil {
-				callbacks.OnResolveTurn()
-			}
+	combatColumns := combatColumnCount(metrics)
+	columnWidth := combatColumnWidth(metrics, combatColumns)
+
+	leftColumn := fixedWidthColumn("combat-left-column", columnWidth,
+		panel("combat-party-panel", "Party", buildUnitCards(model.Party, "party-card")...),
+		panel("selected-dice-panel", "Selected Dice", cardGridWithWidth("selected-dice-grid", columnWidth, 1, selectedChildren...)...),
+		button(
+			"resolve-turn-button",
+			"Resolve Turn",
+			"Resolve the selected three dice, then let enemies act.",
+			false,
+			!model.CanResolve,
+			func() {
+				if callbacks.OnResolveTurn != nil {
+					callbacks.OnResolveTurn()
+				}
+			},
+		),
+	)
+
+	centerChildren := []*ebitenui.Node{
+		panel("combat-enemy-panel", "Enemies", buildUnitCards(model.Enemies, "enemy-card")...),
+		panel("revealed-patterns-panel", "Revealed Patterns", cardGridWithWidth("revealed-pattern-grid", columnWidth, 1, revealChildren...)...),
+	}
+	rightChildren := []*ebitenui.Node{
+		panelWithExtra("available-dice-panel", "Available Dice",
+			cardGridWithWidth("available-dice-grid", columnWidth, 2, availableChildren...),
+			extraDiceSummary(extraDice),
+		),
+		panelWithExtra("combat-log-panel", "Log",
+			cardGridWithWidth("combat-log-grid", columnWidth, 1, logChildren...),
+			extraLogSummary(extraLogs),
+		),
+	}
+
+	combatRowChildren := []*ebitenui.Node{leftColumn}
+	if combatColumns >= 3 {
+		combatRowChildren = append(combatRowChildren, fixedWidthColumn("combat-center-column", columnWidth, centerChildren...))
+		combatRowChildren = append(combatRowChildren, fixedWidthColumn("combat-right-column", columnWidth, rightChildren...))
+	} else if combatColumns == 2 {
+		secondColumnChildren := append([]*ebitenui.Node{}, centerChildren...)
+		secondColumnChildren = append(secondColumnChildren, rightChildren...)
+		combatRowChildren = append(combatRowChildren, fixedWidthColumn("combat-right-column", columnWidth, secondColumnChildren...))
+	} else {
+		leftColumn.Children = append(leftColumn.Children, centerChildren...)
+		leftColumn.Children = append(leftColumn.Children, rightChildren...)
+	}
+
+	children = append(children, ebitenui.Div(ebitenui.Props{
+		ID: "combat-dashboard",
+		Style: ebitenui.Style{
+			Width:     ebitenui.Fill(),
+			Direction: ebitenui.Row,
+			Gap:       combatColGap,
 		},
-	))
+	}, combatRowChildren...))
 
 	return panel("combat-screen", fallback(model.EncounterName, "Combat"), children...)
 }
@@ -396,6 +412,29 @@ func buildUnitList(units []PartyMember, prefix string) []*ebitenui.Node {
 	return children
 }
 
+func buildUnitCards(units []PartyMember, prefix string) []*ebitenui.Node {
+	children := make([]*ebitenui.Node, 0, len(units))
+	for _, unit := range units {
+		label := fmt.Sprintf("%s / %d/%d", unit.Role, unit.HP, unit.MaxHP)
+		if unit.Downed {
+			label += " / downed"
+		}
+		if unit.Status != "" {
+			label += " / " + unit.Status
+		}
+		children = append(children, infoCard(
+			fmt.Sprintf("%s-%s", prefix, unit.ID),
+			unit.Name,
+			label,
+			colorForUnit(unit),
+		))
+	}
+	if len(children) == 0 {
+		children = append(children, infoCard(prefix+"-empty", "Empty", "No units available.", textMuted))
+	}
+	return children
+}
+
 func panel(id string, title string, children ...*ebitenui.Node) *ebitenui.Node {
 	content := []*ebitenui.Node{
 		ebitenui.Text(title, ebitenui.Props{
@@ -409,13 +448,21 @@ func panel(id string, title string, children ...*ebitenui.Node) *ebitenui.Node {
 		Style: ebitenui.Style{
 			Width:           ebitenui.Fill(),
 			Direction:       ebitenui.Column,
-			Padding:         ebitenui.All(12),
-			Gap:             8,
+			Padding:         ebitenui.All(panelPadding),
+			Gap:             panelGap,
 			BackgroundColor: panelBackground,
 			BorderColor:     borderColor,
 			BorderWidth:     1,
 		},
 	}, content...)
+}
+
+func panelWithExtra(id string, title string, main []*ebitenui.Node, extra *ebitenui.Node) *ebitenui.Node {
+	children := append([]*ebitenui.Node{}, main...)
+	if extra != nil {
+		children = append(children, extra)
+	}
+	return panel(id, title, children...)
 }
 
 func button(id string, label string, detail string, selected bool, disabled bool, onClick func()) *ebitenui.Node {
@@ -442,14 +489,14 @@ func button(id string, label string, detail string, selected bool, disabled bool
 		Style: ebitenui.Style{
 			Width:           ebitenui.Fill(),
 			Direction:       ebitenui.Column,
-			Padding:         ebitenui.All(10),
+			Padding:         ebitenui.All(6),
 			Gap:             4,
 			BackgroundColor: background,
 			BorderColor:     borderColor,
 			BorderWidth:     1,
 		},
 	},
-		ebitenui.Text(label, ebitenui.Props{
+		ebitenui.TextBlock(label, ebitenui.Props{
 			ID:    id + "-label",
 			Style: ebitenui.Style{Color: textStrong},
 		}),
@@ -473,14 +520,14 @@ func compactButton(id string, label string, detail string, onClick func()) *ebit
 		Style: ebitenui.Style{
 			Width:           ebitenui.Fill(),
 			Direction:       ebitenui.Column,
-			Padding:         ebitenui.All(8),
+			Padding:         ebitenui.All(6),
 			Gap:             4,
 			BackgroundColor: color.RGBA{R: 34, G: 41, B: 59, A: 255},
 			BorderColor:     borderColor,
 			BorderWidth:     1,
 		},
 	},
-		ebitenui.Text(label, ebitenui.Props{
+		ebitenui.TextBlock(label, ebitenui.Props{
 			ID:    id + "-label",
 			Style: ebitenui.Style{Color: textStrong},
 		}),
@@ -497,14 +544,14 @@ func infoCard(id string, title string, detail string, textColor color.Color) *eb
 		Style: ebitenui.Style{
 			Width:           ebitenui.Fill(),
 			Direction:       ebitenui.Column,
-			Padding:         ebitenui.All(8),
+			Padding:         ebitenui.All(6),
 			Gap:             4,
 			BackgroundColor: color.RGBA{R: 34, G: 41, B: 59, A: 255},
 			BorderColor:     borderColor,
 			BorderWidth:     1,
 		},
 	},
-		ebitenui.Text(title, ebitenui.Props{
+		ebitenui.TextBlock(title, ebitenui.Props{
 			ID:    id + "-title",
 			Style: ebitenui.Style{Color: textStrong},
 		}),
@@ -528,13 +575,155 @@ func fixedWidthPanel(id string, title string, width float64, children ...*ebiten
 		Style: ebitenui.Style{
 			Width:           ebitenui.Px(width),
 			Direction:       ebitenui.Column,
-			Padding:         ebitenui.All(12),
-			Gap:             8,
+			Padding:         ebitenui.All(panelPadding),
+			Gap:             panelGap,
 			BackgroundColor: panelBackground,
 			BorderColor:     borderColor,
 			BorderWidth:     1,
 		},
 	}, content...)
+}
+
+func fixedWidthColumn(id string, width float64, children ...*ebitenui.Node) *ebitenui.Node {
+	return ebitenui.Div(ebitenui.Props{
+		ID: id,
+		Style: ebitenui.Style{
+			Width:     ebitenui.Px(width),
+			Direction: ebitenui.Column,
+			Gap:       combatColGap,
+		},
+	}, children...)
+}
+
+func extraDiceSummary(extra int) *ebitenui.Node {
+	if extra <= 0 {
+		return nil
+	}
+	return ebitenui.TextBlock(
+		fmt.Sprintf("%d more dice are still in the pool.", extra),
+		ebitenui.Props{
+			ID:    "available-dice-more",
+			Style: ebitenui.Style{Color: textMuted},
+		},
+	)
+}
+
+func extraLogSummary(extra int) *ebitenui.Node {
+	if extra <= 0 {
+		return nil
+	}
+	return ebitenui.TextBlock(
+		fmt.Sprintf("%d older log lines are hidden.", extra),
+		ebitenui.Props{
+			ID:    "combat-log-more",
+			Style: ebitenui.Style{Color: textMuted},
+		},
+	)
+}
+
+func resolveLayoutMetrics(model Model) layoutMetrics {
+	width := model.ViewportWidth
+	height := model.ViewportHeight
+	if width <= 0 {
+		width = 1280
+	}
+	if height <= 0 {
+		height = 720
+	}
+	return layoutMetrics{
+		viewportWidth:  width,
+		viewportHeight: height,
+		contentWidth:   width - (rootPadding * 2),
+	}
+}
+
+func gridColumnCount(metrics layoutMetrics, preferred int) int {
+	if preferred <= 1 {
+		return 1
+	}
+	if metrics.contentWidth < 900 {
+		return 1
+	}
+	return preferred
+}
+
+func combatColumnCount(metrics layoutMetrics) int {
+	if metrics.contentWidth >= 1140 {
+		return 3
+	}
+	if metrics.contentWidth >= 760 {
+		return 2
+	}
+	return 1
+}
+
+func combatColumnWidth(metrics layoutMetrics, columns int) float64 {
+	innerWidth := metrics.contentWidth - (panelPadding * 2) - (combatColGap * float64(columns-1))
+	if innerWidth < minTileWidth {
+		innerWidth = minTileWidth
+	}
+	return innerWidth / float64(columns)
+}
+
+func cardGrid(id string, metrics layoutMetrics, columns int, children ...*ebitenui.Node) *ebitenui.Node {
+	innerWidth := maxFloat(metrics.contentWidth-(panelPadding*2), minTileWidth)
+	cardWidth := innerWidth
+	if columns > 1 {
+		cardWidth = (innerWidth - (gridGap * float64(columns-1))) / float64(columns)
+	}
+	return ebitenui.Grid(ebitenui.GridConfig{
+		ID:       id,
+		Columns:  columns,
+		Gap:      gridGap,
+		Children: wrapCards(id, cardWidth, children...),
+	})
+}
+
+func cardGridWithWidth(id string, width float64, columns int, children ...*ebitenui.Node) []*ebitenui.Node {
+	innerWidth := maxFloat(width-(panelPadding*2), minTileWidth)
+	cardWidth := innerWidth
+	if columns > 1 {
+		cardWidth = (innerWidth - (gridGap * float64(columns-1))) / float64(columns)
+	}
+	return []*ebitenui.Node{
+		ebitenui.Grid(ebitenui.GridConfig{
+			ID:       id,
+			Columns:  columns,
+			Gap:      gridGap,
+			Children: wrapCards(id, cardWidth, children...),
+		}),
+	}
+}
+
+func wrapCards(id string, width float64, children ...*ebitenui.Node) []*ebitenui.Node {
+	wrapped := make([]*ebitenui.Node, 0, len(children))
+	for index, child := range children {
+		if child == nil {
+			continue
+		}
+		wrapped = append(wrapped, ebitenui.Div(ebitenui.Props{
+			ID: fmt.Sprintf("%s-wrap-%d", id, index),
+			Style: ebitenui.Style{
+				Width:     ebitenui.Px(maxFloat(width, minTileWidth)),
+				Direction: ebitenui.Column,
+			},
+		}, child))
+	}
+	return wrapped
+}
+
+func limitDieViews(dice []DieView, limit int) ([]DieView, int) {
+	if len(dice) <= limit {
+		return dice, 0
+	}
+	return dice[:limit], len(dice) - limit
+}
+
+func limitStrings(values []string, limit int) ([]string, int) {
+	if len(values) <= limit {
+		return values, 0
+	}
+	return values[len(values)-limit:], len(values) - limit
 }
 
 func fallback(value string, fallbackValue string) string {
@@ -559,4 +748,11 @@ func colorForUnit(unit PartyMember) color.Color {
 		return accentColor
 	}
 	return successColor
+}
+
+func maxFloat(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
 }

@@ -168,6 +168,8 @@ func (game *Game) currentModelLocked() gameui.Model {
 		CurrentScreen:  string(game.run.Screen),
 		HeaderTitle:    screenTitle(game.run.Screen),
 		HeaderSubtitle: fmt.Sprintf("Seed %d / Node %s", game.run.Seed, fallbackString(game.run.CurrentNodeID, "start")),
+		ViewportWidth:  float64(game.width),
+		ViewportHeight: float64(game.height),
 		PartyRoster:    partyRoster,
 	}
 
@@ -426,18 +428,18 @@ func (game *Game) uiSnapshot() ebitendebug.UISnapshot {
 
 func (game *Game) debugSummaryLocked() map[string]any {
 	summary := map[string]any{
-		"currentScreen":       string(game.run.Screen),
-		"currentNodeID":       game.run.CurrentNodeID,
-		"partyIDs":            []string{},
-		"partyHP":             map[string]int{},
-		"downedUnitIDs":       []string{},
-		"availableDiceCount":  0,
-		"graveyardDiceCount":  0,
-		"selectedDiceIDs":     []string{},
-		"enemyIDs":            []string{},
-		"enemyHP":             map[string]int{},
+		"currentScreen":        string(game.run.Screen),
+		"currentNodeID":        game.run.CurrentNodeID,
+		"partyIDs":             []string{},
+		"partyHP":              map[string]int{},
+		"downedUnitIDs":        []string{},
+		"availableDiceCount":   0,
+		"graveyardDiceCount":   0,
+		"selectedDiceIDs":      []string{},
+		"enemyIDs":             []string{},
+		"enemyHP":              map[string]int{},
 		"revealedNextPatterns": map[string]string{},
-		"turn":                0,
+		"turn":                 0,
 	}
 
 	partyIDs := make([]string, 0, len(game.run.PartyUnits))

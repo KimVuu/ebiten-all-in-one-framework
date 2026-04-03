@@ -63,6 +63,8 @@ type Model struct {
 	CurrentScreen  string
 	HeaderTitle    string
 	HeaderSubtitle string
+	ViewportWidth  float64
+	ViewportHeight float64
 	PartyRoster    []PartyMember
 	PartySelection PartySelectionModel
 	Map            MapModel
