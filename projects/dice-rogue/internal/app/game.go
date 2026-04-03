@@ -167,7 +167,7 @@ func (game *Game) currentModelLocked() gameui.Model {
 	model := gameui.Model{
 		CurrentScreen:  string(game.run.Screen),
 		HeaderTitle:    screenTitle(game.run.Screen),
-		HeaderSubtitle: fmt.Sprintf("Seed %d / Node %s", game.run.Seed, fallbackString(game.run.CurrentNodeID, "start")),
+		HeaderSubtitle: fmt.Sprintf("시드 %d / 현재 노드 %s", game.run.Seed, nodeDisplayName(game.run.CurrentNodeID)),
 		ViewportWidth:  float64(game.width),
 		ViewportHeight: float64(game.height),
 		PartyRoster:    partyRoster,
@@ -189,7 +189,7 @@ func (game *Game) currentModelLocked() gameui.Model {
 			})
 		}
 		model.Map = gameui.MapModel{
-			CurrentNodeID: game.run.CurrentNodeID,
+			CurrentNodeID: nodeDisplayName(game.run.CurrentNodeID),
 			Nodes:         nodes,
 		}
 	case ScreenCombat:
@@ -228,7 +228,7 @@ func (game *Game) currentCombatModelLocked() gameui.CombatModel {
 	for _, unit := range combat.PlayerUnits {
 		status := ""
 		if unit.ID == "human-warrior" && unit.Counters[counterHeroGoddess] > 0 {
-			status = fmt.Sprintf("Goddess %d", unit.Counters[counterHeroGoddess])
+			status = fmt.Sprintf("여신 스택 %d", unit.Counters[counterHeroGoddess])
 		}
 		party = append(party, buildPartyMemberViewWithStatus(unit, false, status))
 	}
@@ -255,7 +255,7 @@ func (game *Game) currentCombatModelLocked() gameui.CombatModel {
 	}
 	patterns := make([]string, 0, len(combat.RevealedNextPatterns))
 	for enemyID, label := range combat.RevealedNextPatterns {
-		patterns = append(patterns, fmt.Sprintf("%s -> %s", ownerLabel(enemyID), label))
+		patterns = append(patterns, fmt.Sprintf("%s 다음 패턴: %s", ownerLabel(enemyID), label))
 	}
 	logs := append([]string(nil), combat.Logs...)
 	if len(logs) > 6 {
@@ -340,8 +340,8 @@ func (game *Game) sceneSnapshot() ebitendebug.SceneSnapshot {
 	game.mu.RLock()
 	defer game.mu.RUnlock()
 	return ebitendebug.SceneSnapshot{
-		Current: ebitendebug.SceneRef{ID: "dice-rogue", Name: "Dice Rogue"},
-		Known:   []ebitendebug.SceneRef{{ID: "dice-rogue", Name: "Dice Rogue"}},
+		Current: ebitendebug.SceneRef{ID: "dice-rogue", Name: "주사위 로그"},
+		Known:   []ebitendebug.SceneRef{{ID: "dice-rogue", Name: "주사위 로그"}},
 		Summary: game.debugSummaryLocked(),
 	}
 }
@@ -649,13 +649,13 @@ func (game *Game) debugBridgeLikeCommand(name string, args map[string]any) ebite
 func screenTitle(screen ScreenID) string {
 	switch screen {
 	case ScreenMap:
-		return "Act Map"
+		return "1막 지도"
 	case ScreenCombat:
-		return "Combat"
+		return "전투"
 	case ScreenOutcome:
-		return "Rest / Result"
+		return "휴식 / 결과"
 	default:
-		return "Party Selection"
+		return "파티 선택"
 	}
 }
 
@@ -664,7 +664,7 @@ func unitDiceSummary(unit UnitState) string {
 	for _, die := range unit.Dice {
 		counts[die.Kind]++
 	}
-	return fmt.Sprintf("A %d / D %d / S %d", counts[DieKindAttack], counts[DieKindDefense], counts[DieKindSkill])
+	return fmt.Sprintf("공격 %d / 방어 %d / 스킬 %d", counts[DieKindAttack], counts[DieKindDefense], counts[DieKindSkill])
 }
 
 func ownerLabel(id string) string {
@@ -684,25 +684,51 @@ func ownerLabel(id string) string {
 func dieDetail(die DieSpec) string {
 	switch die.Kind {
 	case DieKindAttack:
-		return "Random packet attack"
+		return "무작위 적 1명 피해"
 	case DieKindDefense:
-		return "Team defense"
+		return "파티 공유 방어"
 	default:
-		return die.EffectID
+		switch die.EffectID {
+		case effectHeroGoddess:
+			return "성공2 실패4 / 3스택 전체10"
+		case effectTankGuard:
+			return "성공2 실패4 / 방어 2배"
+		case effectPriestHeal:
+			return "성공1 실패5 / 전체 2회복"
+		case effectGuideInfo:
+			return "성공3 실패2 도주1 / 다음 패턴 공개"
+		case effectGuideWeakness:
+			return "성공3 실패2 도주1 / 2턴 피해+30%"
+		case effectGuideEscape:
+			return "도주5 실패1 / 일반전 조건부 도주"
+		case effectArcherShot:
+			return "1 2 3 4 치명 치명 / 치명 시 2배"
+		case effectSmithForge:
+			return "성공3 실패3 / 피해+50%"
+		default:
+			return die.EffectID
+		}
 	}
 }
 
 func mapNodeDetail(node EncounterNode) string {
 	switch node.Kind {
 	case NodeKindRest:
-		return "Recover 30% max HP and revive fallen allies at 1 HP first."
+		return "최대 체력의 30%를 회복하고 쓰러진 아군은 먼저 1 체력으로 복귀합니다."
 	case NodeKindElite:
-		return "Elite battle."
+		return "엘리트 전투입니다."
 	case NodeKindBoss:
-		return "Boss battle. Escape disabled."
+		return "보스 전투입니다. 도주할 수 없습니다."
 	default:
-		return "Standard battle."
+		return "일반 전투입니다."
 	}
+}
+
+func nodeDisplayName(id string) string {
+	if node, ok := mapNodeByID(id); ok {
+		return node.Name
+	}
+	return fallbackString(id, "시작")
 }
 
 func fallbackString(value string, fallback string) string {

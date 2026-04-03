@@ -23,7 +23,7 @@ func main() {
 		}()
 	}
 
-	ebiten.SetWindowTitle("dice rogue")
+	ebiten.SetWindowTitle("주사위 로그")
 	ebiten.SetWindowSize(1280, 720)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 

@@ -62,7 +62,7 @@ func BuildDOM(model Model, callbacks Callbacks) *ebitenui.DOM {
 }
 
 func buildHeader(model Model) *ebitenui.Node {
-	return panel("screen-header", "Dice Rogue",
+	return panel("screen-header", "주사위 로그",
 		ebitenui.Text(model.HeaderTitle, ebitenui.Props{
 			ID:    "screen-title",
 			Style: ebitenui.Style{Color: textStrong},
@@ -76,22 +76,22 @@ func buildHeader(model Model) *ebitenui.Node {
 
 func buildPartyRoster(roster []PartyMember, metrics layoutMetrics) *ebitenui.Node {
 	children := []*ebitenui.Node{
-		ebitenui.Text("Party", ebitenui.Props{
+		ebitenui.Text("파티", ebitenui.Props{
 			ID:    "party-roster-title",
 			Style: ebitenui.Style{Color: textStrong},
 		}),
 	}
 	if len(roster) == 0 {
-		children = append(children, ebitenui.TextBlock("Select three members to start the act.", ebitenui.Props{
+		children = append(children, ebitenui.TextBlock("3명의 파티원을 선택해 1막을 시작하세요.", ebitenui.Props{
 			ID:    "party-roster-empty",
 			Style: ebitenui.Style{Color: textMuted},
 		}))
 	} else {
 		cards := make([]*ebitenui.Node, 0, len(roster))
 		for _, member := range roster {
-			label := fmt.Sprintf("%s (%s) %d/%d", member.Name, member.Role, member.HP, member.MaxHP)
+			label := fmt.Sprintf("역할 %s / 체력 %d/%d", member.Role, member.HP, member.MaxHP)
 			if member.Downed {
-				label += " / downed"
+				label += " / 쓰러짐"
 			}
 			cards = append(cards, infoCard(
 				fmt.Sprintf("party-summary-%s", member.ID),
@@ -102,7 +102,7 @@ func buildPartyRoster(roster []PartyMember, metrics layoutMetrics) *ebitenui.Nod
 		}
 		children = append(children, cardGrid("party-roster-grid", metrics, gridColumnCount(metrics, 3), cards...))
 	}
-	return panel("party-roster-panel", "Roster", children...)
+	return panel("party-roster-panel", "파티 현황", children...)
 }
 
 func buildCurrentScreen(model Model, callbacks Callbacks, metrics layoutMetrics) *ebitenui.Node {
@@ -120,14 +120,14 @@ func buildCurrentScreen(model Model, callbacks Callbacks, metrics layoutMetrics)
 
 func buildPartySelectionScreen(model PartySelectionModel, callbacks Callbacks, metrics layoutMetrics) *ebitenui.Node {
 	children := []*ebitenui.Node{
-		ebitenui.TextBlock(fmt.Sprintf("Selected %d / 3", model.SelectedCount), ebitenui.Props{
+		ebitenui.TextBlock(fmt.Sprintf("선택 %d / 3", model.SelectedCount), ebitenui.Props{
 			ID:    "party-selection-count",
 			Style: ebitenui.Style{Color: textMuted},
 		}),
 	}
 	gridChildren := make([]*ebitenui.Node, 0, len(model.Candidates))
 	for _, candidate := range model.Candidates {
-		label := fmt.Sprintf("%s / %s / HP %d", candidate.Name, candidate.Role, candidate.MaxHP)
+		label := fmt.Sprintf("%s / %s / 체력 %d", candidate.Name, candidate.Role, candidate.MaxHP)
 		gridChildren = append(gridChildren, button(
 			fmt.Sprintf("party-option-%s", candidate.ID),
 			label,
@@ -146,8 +146,8 @@ func buildPartySelectionScreen(model PartySelectionModel, callbacks Callbacks, m
 	children = append(children, cardGrid("party-selection-grid", metrics, gridColumnCount(metrics, 2), gridChildren...))
 	children = append(children, button(
 		"start-run-button",
-		"Start Run",
-		"Open the first act map with the selected party.",
+		"출발하기",
+		"선택한 파티로 1막 지도에 진입합니다.",
 		false,
 		!model.CanStart,
 		func() {
@@ -156,16 +156,16 @@ func buildPartySelectionScreen(model PartySelectionModel, callbacks Callbacks, m
 			}
 		},
 	))
-	return panel("party-selection-screen", "Party Selection", children...)
+	return panel("party-selection-screen", "파티 선택", children...)
 }
 
 func buildMapScreen(model MapModel, callbacks Callbacks, metrics layoutMetrics) *ebitenui.Node {
 	children := []*ebitenui.Node{
-		ebitenui.TextBlock("Choose the next route in the fixed first act.", ebitenui.Props{
+		ebitenui.TextBlock("고정된 1막 경로 중 다음 노드를 선택하세요.", ebitenui.Props{
 			ID:    "map-copy",
 			Style: ebitenui.Style{Color: textMuted},
 		}),
-		ebitenui.Text(fmt.Sprintf("Current node: %s", fallback(model.CurrentNodeID, "start")), ebitenui.Props{
+		ebitenui.Text(fmt.Sprintf("현재 노드: %s", fallback(model.CurrentNodeID, "시작")), ebitenui.Props{
 			ID:    "map-current-node",
 			Style: ebitenui.Style{Color: textMuted},
 		}),
@@ -174,7 +174,7 @@ func buildMapScreen(model MapModel, callbacks Callbacks, metrics layoutMetrics) 
 	for _, node := range model.Nodes {
 		gridChildren = append(gridChildren, button(
 			fmt.Sprintf("map-node-%s", node.ID),
-			fmt.Sprintf("%s / %s", strings.Title(node.Kind), node.Name),
+			fmt.Sprintf("%s / %s", nodeKindLabel(node.Kind), node.Name),
 			node.Detail,
 			false,
 			false,
@@ -188,16 +188,16 @@ func buildMapScreen(model MapModel, callbacks Callbacks, metrics layoutMetrics) 
 		))
 	}
 	children = append(children, cardGrid("map-node-grid", metrics, gridColumnCount(metrics, 2), gridChildren...))
-	return panel("map-screen", "Act Map", children...)
+	return panel("map-screen", "1막 지도", children...)
 }
 
 func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMetrics) *ebitenui.Node {
 	children := []*ebitenui.Node{
-		ebitenui.Text(fmt.Sprintf("Turn %d", maxOne(model.Turn)), ebitenui.Props{
+		ebitenui.Text(fmt.Sprintf("%d턴", maxOne(model.Turn)), ebitenui.Props{
 			ID:    "combat-turn",
 			Style: ebitenui.Style{Color: textStrong},
 		}),
-		ebitenui.Text(fmt.Sprintf("Ally defense %d / Enemy defense %d / Damage +%d%%", model.AllyDefense, model.EnemyDefense, model.DamageBoost), ebitenui.Props{
+		ebitenui.Text(fmt.Sprintf("아군 방어 %d / 적 방어 %d / 피해 증가 +%d%%", model.AllyDefense, model.EnemyDefense, model.DamageBoost), ebitenui.Props{
 			ID:    "combat-defense-summary",
 			Style: ebitenui.Style{Color: textMuted},
 		}),
@@ -205,7 +205,7 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 
 	revealChildren := []*ebitenui.Node{}
 	if len(model.RevealedPatterns) == 0 {
-		revealChildren = append(revealChildren, ebitenui.TextBlock("No revealed enemy intent.", ebitenui.Props{
+		revealChildren = append(revealChildren, ebitenui.TextBlock("공개된 다음 적 패턴이 없습니다.", ebitenui.Props{
 			ID:    "revealed-patterns-empty",
 			Style: ebitenui.Style{Color: textMuted},
 		}))
@@ -213,7 +213,7 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 		for index, text := range model.RevealedPatterns {
 			revealChildren = append(revealChildren, infoCard(
 				fmt.Sprintf("revealed-pattern-%d", index),
-				fmt.Sprintf("Enemy %d", index+1),
+				fmt.Sprintf("적 %d", index+1),
 				text,
 				accentColor,
 			))
@@ -225,7 +225,7 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	for _, die := range visibleDice {
 		detail := die.Detail
 		if die.Forced {
-			detail += " / forced"
+			detail += " / 강제 선택"
 		}
 		availableChildren = append(availableChildren, compactButton(
 			fmt.Sprintf("available-die-%s", die.ID),
@@ -243,8 +243,8 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	if len(availableChildren) == 0 {
 		availableChildren = append(availableChildren, infoCard(
 			"available-dice-empty",
-			"No choices",
-			"No manual choices left in the current pool.",
+			"선택 없음",
+			"현재 풀에서 직접 고를 주사위가 남아 있지 않습니다.",
 			textMuted,
 		))
 	}
@@ -253,7 +253,7 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	for _, die := range model.SelectedDice {
 		text := die.Label
 		if die.Forced {
-			text += " / forced"
+			text += " / 강제 선택"
 		}
 		selectedChildren = append(selectedChildren, infoCard(
 			fmt.Sprintf("selected-die-%s", die.ID),
@@ -265,8 +265,8 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	if len(selectedChildren) == 0 {
 		selectedChildren = append(selectedChildren, infoCard(
 			"selected-dice-empty",
-			"Select Dice",
-			"Select three dice to resolve the turn.",
+			"주사위 선택",
+			"턴을 진행하려면 주사위 3개를 선택하세요.",
 			textMuted,
 		))
 	}
@@ -276,15 +276,15 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	if len(visibleLogs) == 0 {
 		logChildren = append(logChildren, infoCard(
 			"combat-log-empty",
-			"No logs yet",
-			"Turn logs appear here after combat resolves.",
+			"전투 기록 없음",
+			"턴이 끝나면 전투 기록이 여기에 표시됩니다.",
 			textMuted,
 		))
 	} else {
 		for index, line := range visibleLogs {
 			logChildren = append(logChildren, infoCard(
 				fmt.Sprintf("combat-log-%d", index),
-				fmt.Sprintf("Log %d", index+1),
+				fmt.Sprintf("기록 %d", index+1),
 				line,
 				textMuted,
 			))
@@ -294,12 +294,12 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	columnWidth := combatColumnWidth(metrics, combatColumns)
 
 	leftColumn := fixedWidthColumn("combat-left-column", columnWidth,
-		panel("combat-party-panel", "Party", buildUnitCards(model.Party, "party-card")...),
-		panel("selected-dice-panel", "Selected Dice", cardGridWithWidth("selected-dice-grid", columnWidth, 1, selectedChildren...)...),
+		panel("combat-party-panel", "파티", buildUnitCards(model.Party, "party-card")...),
+		panel("selected-dice-panel", "선택된 주사위", cardGridWithWidth("selected-dice-grid", columnWidth, 1, selectedChildren...)...),
 		button(
 			"resolve-turn-button",
-			"Resolve Turn",
-			"Resolve the selected three dice, then let enemies act.",
+			"턴 진행",
+			"선택한 주사위 3개를 처리한 뒤 적이 행동합니다.",
 			false,
 			!model.CanResolve,
 			func() {
@@ -311,15 +311,15 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	)
 
 	centerChildren := []*ebitenui.Node{
-		panel("combat-enemy-panel", "Enemies", buildUnitCards(model.Enemies, "enemy-card")...),
-		panel("revealed-patterns-panel", "Revealed Patterns", cardGridWithWidth("revealed-pattern-grid", columnWidth, 1, revealChildren...)...),
+		panel("combat-enemy-panel", "적", buildUnitCards(model.Enemies, "enemy-card")...),
+		panel("revealed-patterns-panel", "공개된 패턴", cardGridWithWidth("revealed-pattern-grid", columnWidth, 1, revealChildren...)...),
 	}
 	rightChildren := []*ebitenui.Node{
-		panelWithExtra("available-dice-panel", "Available Dice",
+		panelWithExtra("available-dice-panel", "사용 가능 주사위",
 			cardGridWithWidth("available-dice-grid", columnWidth, 2, availableChildren...),
 			extraDiceSummary(extraDice),
 		),
-		panelWithExtra("combat-log-panel", "Log",
+		panelWithExtra("combat-log-panel", "전투 기록",
 			cardGridWithWidth("combat-log-grid", columnWidth, 1, logChildren...),
 			extraLogSummary(extraLogs),
 		),
@@ -347,7 +347,7 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 		},
 	}, combatRowChildren...))
 
-	return panel("combat-screen", fallback(model.EncounterName, "Combat"), children...)
+	return panel("combat-screen", fallback(model.EncounterName, "전투"), children...)
 }
 
 func buildOutcomeScreen(model OutcomeModel, callbacks Callbacks) *ebitenui.Node {
@@ -360,8 +360,8 @@ func buildOutcomeScreen(model OutcomeModel, callbacks Callbacks) *ebitenui.Node 
 	if model.CanContinue {
 		children = append(children, button(
 			"continue-button",
-			"Continue",
-			"Return to the act map.",
+			"계속",
+			"1막 지도로 돌아갑니다.",
 			false,
 			false,
 			func() {
@@ -374,8 +374,8 @@ func buildOutcomeScreen(model OutcomeModel, callbacks Callbacks) *ebitenui.Node 
 	if model.RunEnded {
 		children = append(children, button(
 			"restart-button",
-			"Restart",
-			"Start a fresh run from party selection.",
+			"다시 시작",
+			"파티 선택부터 새 런을 시작합니다.",
 			false,
 			false,
 			func() {
@@ -385,15 +385,15 @@ func buildOutcomeScreen(model OutcomeModel, callbacks Callbacks) *ebitenui.Node 
 			},
 		))
 	}
-	return panel("outcome-screen", fallback(model.Title, "Outcome"), children...)
+	return panel("outcome-screen", fallback(model.Title, "결과"), children...)
 }
 
 func buildUnitList(units []PartyMember, prefix string) []*ebitenui.Node {
 	children := make([]*ebitenui.Node, 0, len(units))
 	for _, unit := range units {
-		label := fmt.Sprintf("%s / %s / %d/%d", unit.Name, unit.Role, unit.HP, unit.MaxHP)
+		label := fmt.Sprintf("%s / %s / 체력 %d/%d", unit.Name, unit.Role, unit.HP, unit.MaxHP)
 		if unit.Downed {
-			label += " / downed"
+			label += " / 쓰러짐"
 		}
 		if unit.Status != "" {
 			label += " / " + unit.Status
@@ -404,7 +404,7 @@ func buildUnitList(units []PartyMember, prefix string) []*ebitenui.Node {
 		}))
 	}
 	if len(children) == 0 {
-		children = append(children, ebitenui.TextBlock("No units available.", ebitenui.Props{
+		children = append(children, ebitenui.TextBlock("표시할 유닛이 없습니다.", ebitenui.Props{
 			ID:    prefix + "-empty",
 			Style: ebitenui.Style{Color: textMuted},
 		}))
@@ -415,9 +415,9 @@ func buildUnitList(units []PartyMember, prefix string) []*ebitenui.Node {
 func buildUnitCards(units []PartyMember, prefix string) []*ebitenui.Node {
 	children := make([]*ebitenui.Node, 0, len(units))
 	for _, unit := range units {
-		label := fmt.Sprintf("%s / %d/%d", unit.Role, unit.HP, unit.MaxHP)
+		label := fmt.Sprintf("%s / 체력 %d/%d", unit.Role, unit.HP, unit.MaxHP)
 		if unit.Downed {
-			label += " / downed"
+			label += " / 쓰러짐"
 		}
 		if unit.Status != "" {
 			label += " / " + unit.Status
@@ -430,7 +430,7 @@ func buildUnitCards(units []PartyMember, prefix string) []*ebitenui.Node {
 		))
 	}
 	if len(children) == 0 {
-		children = append(children, infoCard(prefix+"-empty", "Empty", "No units available.", textMuted))
+		children = append(children, infoCard(prefix+"-empty", "비어 있음", "표시할 유닛이 없습니다.", textMuted))
 	}
 	return children
 }
@@ -600,7 +600,7 @@ func extraDiceSummary(extra int) *ebitenui.Node {
 		return nil
 	}
 	return ebitenui.TextBlock(
-		fmt.Sprintf("%d more dice are still in the pool.", extra),
+		fmt.Sprintf("아직 %d개의 주사위가 풀에 남아 있습니다.", extra),
 		ebitenui.Props{
 			ID:    "available-dice-more",
 			Style: ebitenui.Style{Color: textMuted},
@@ -613,7 +613,7 @@ func extraLogSummary(extra int) *ebitenui.Node {
 		return nil
 	}
 	return ebitenui.TextBlock(
-		fmt.Sprintf("%d older log lines are hidden.", extra),
+		fmt.Sprintf("이전 전투 기록 %d줄이 숨겨져 있습니다.", extra),
 		ebitenui.Props{
 			ID:    "combat-log-more",
 			Style: ebitenui.Style{Color: textMuted},
@@ -731,6 +731,23 @@ func fallback(value string, fallbackValue string) string {
 		return fallbackValue
 	}
 	return value
+}
+
+func nodeKindLabel(kind string) string {
+	switch kind {
+	case "start":
+		return "시작"
+	case "normal":
+		return "일반"
+	case "elite":
+		return "엘리트"
+	case "boss":
+		return "보스"
+	case "rest":
+		return "휴식"
+	default:
+		return kind
+	}
 }
 
 func maxOne(value int) int {

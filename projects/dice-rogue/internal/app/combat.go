@@ -15,20 +15,20 @@ type attackPacket struct {
 
 func newCombatStateWithRandom(party []UnitState, encounter EncounterDefinition, random *RandomSource) *CombatState {
 	combat := &CombatState{
-		NodeID:             encounter.ID,
-		EncounterID:        encounter.ID,
-		EncounterName:      encounter.Name,
-		EncounterKind:      encounter.Kind,
-		PlayerUnits:        cloneUnits(party),
-		EnemyUnits:         cloneUnits(encounter.Enemies),
-		AvailableDice:      buildCombatDicePool(party),
-		GraveyardDice:      nil,
-		SelectedDice:       nil,
-		EnemyStatuses:      nil,
+		NodeID:               encounter.ID,
+		EncounterID:          encounter.ID,
+		EncounterName:        encounter.Name,
+		EncounterKind:        encounter.Kind,
+		PlayerUnits:          cloneUnits(party),
+		EnemyUnits:           cloneUnits(encounter.Enemies),
+		AvailableDice:        buildCombatDicePool(party),
+		GraveyardDice:        nil,
+		SelectedDice:         nil,
+		EnemyStatuses:        nil,
 		RevealedNextPatterns: nil,
-		Outcome:            CombatOutcomeNone,
-		Logs:               nil,
-		random:             random,
+		Outcome:              CombatOutcomeNone,
+		Logs:                 nil,
+		random:               random,
 	}
 	combat.prepareSelection()
 	return combat
@@ -107,14 +107,14 @@ func (combat *CombatState) prepareSelection() {
 
 func (combat *CombatState) selectDie(id string) error {
 	if combat == nil {
-		return fmt.Errorf("combat unavailable")
+		return fmt.Errorf("전투 상태를 찾을 수 없습니다")
 	}
 	if combat.Outcome != CombatOutcomeNone {
-		return fmt.Errorf("combat already resolved")
+		return fmt.Errorf("이미 전투가 종료되었습니다")
 	}
 	combat.prepareSelection()
 	if len(combat.SelectedDice) >= 3 {
-		return fmt.Errorf("turn already has three dice selected")
+		return fmt.Errorf("이번 턴에는 이미 주사위 3개가 선택되었습니다")
 	}
 	for idx, die := range combat.AvailableDice {
 		if die.ID != id {
@@ -125,7 +125,7 @@ func (combat *CombatState) selectDie(id string) error {
 		combat.prepareSelection()
 		return nil
 	}
-	return fmt.Errorf("unknown die: %s", id)
+	return fmt.Errorf("알 수 없는 주사위입니다: %s", id)
 }
 
 func (combat *CombatState) resolveTurn() TurnResolution {
@@ -138,7 +138,7 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 	}
 	combat.prepareSelection()
 	if len(combat.SelectedDice) != 3 {
-		summary.Logs = append(summary.Logs, "Turn cannot resolve without three selected dice.")
+		summary.Logs = append(summary.Logs, "주사위 3개가 선택되어야 턴을 진행할 수 있습니다.")
 		return summary
 	}
 
@@ -157,7 +157,7 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 	for _, selected := range combat.SelectedDice {
 		die := selected.Die
 		face := die.Faces[combat.random.NextInt(len(die.Faces))]
-		combat.pushLog(fmt.Sprintf("%s rolled %s.", die.Name, face.Label))
+		combat.pushLog(fmt.Sprintf("%s 주사위 결과: %s.", die.Name, face.Label))
 		switch die.Kind {
 		case DieKindAttack:
 			if face.Kind == FaceKindValue && face.Value > 0 {
@@ -177,10 +177,10 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 				if face.Kind == FaceKindSuccess {
 					unit := combat.playerUnit(die.OwnerID)
 					unit.Counters[counterHeroGoddess]++
-					combat.pushLog(fmt.Sprintf("%s gained a goddess stack (%d).", ownerLabel(die.OwnerID), unit.Counters[counterHeroGoddess]))
+					combat.pushLog(fmt.Sprintf("%s의 여신 스택이 %d가 되었다.", ownerLabel(die.OwnerID), unit.Counters[counterHeroGoddess]))
 					for unit.Counters[counterHeroGoddess] >= 3 {
 						unit.Counters[counterHeroGoddess] -= 3
-						combat.pushLog(fmt.Sprintf("%s unleashed goddess burst.", ownerLabel(die.OwnerID)))
+						combat.pushLog(fmt.Sprintf("%s가 여신 폭발을 발동했다.", ownerLabel(die.OwnerID)))
 						for _, enemyIdx := range combat.aliveEnemyUnits() {
 							attackPackets = append(attackPackets, attackPacket{
 								SourceUnitID: die.OwnerID,
@@ -194,7 +194,7 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 			case effectTankGuard:
 				if face.Kind == FaceKindSuccess {
 					tankMultiplier = true
-					combat.pushLog("Guard prepared a doubled defense turn.")
+					combat.pushLog("방패병이 이번 턴 방어 2배를 준비했다.")
 				}
 			case effectPriestHeal:
 				if face.Kind == FaceKindSuccess {
@@ -205,12 +205,12 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 						}
 						unit.HP = minInt(unit.MaxHP, unit.HP+2)
 					}
-					combat.pushLog("Priest healed the living party.")
+					combat.pushLog("여신관이 생존한 아군을 회복시켰다.")
 				}
 			case effectGuideInfo:
 				if face.Kind == FaceKindSuccess {
 					guideReveal = true
-					combat.pushLog("Guide revealed the next enemy pattern.")
+					combat.pushLog("길잡이가 다음 적 패턴을 간파했다.")
 				}
 				if face.Kind == FaceKindEscape {
 					guideEscapeSupport = true
@@ -219,11 +219,11 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 				if face.Kind == FaceKindSuccess {
 					combat.addEnemyStatus(StatusEffect{
 						ID:             statusWeakness,
-						Name:           "Weakness",
+						Name:           "약점",
 						Magnitude:      30,
 						RemainingTurns: 2,
 					})
-					combat.pushLog("Guide exposed enemy weakness.")
+					combat.pushLog("길잡이가 적의 약점을 드러냈다.")
 				}
 				if face.Kind == FaceKindEscape {
 					guideEscapeSupport = true
@@ -247,7 +247,7 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 			case effectSmithForge:
 				if face.Kind == FaceKindSuccess {
 					smithBoost = 50
-					combat.pushLog("Smith amplified incoming damage.")
+					combat.pushLog("대장장이가 이번 턴 적이 받는 피해를 증폭시켰다.")
 				}
 			}
 		}
@@ -264,7 +264,7 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 	combat.AllyDefense = allyDefense
 	summary.GeneratedAllyDefense = allyDefense
 	if allyDefense > 0 {
-		combat.pushLog(fmt.Sprintf("Party defense is now %d.", allyDefense))
+		combat.pushLog(fmt.Sprintf("파티 방어가 %d가 되었다.", allyDefense))
 	}
 
 	if archerCrits > 0 {
@@ -281,11 +281,11 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 
 	if guideEscapeMain && guideEscapeSupport && combat.EncounterKind == EncounterKindNormal {
 		combat.Outcome = CombatOutcomeEscape
-		combat.pushLog("Escape succeeded.")
+		combat.pushLog("도주에 성공했다.")
 	}
 	if len(combat.aliveEnemyUnits()) == 0 {
 		combat.Outcome = CombatOutcomeVictory
-		combat.pushLog("Encounter cleared.")
+		combat.pushLog("전투를 돌파했다.")
 	}
 	if combat.Outcome != CombatOutcomeNone {
 		summary.Outcome = combat.Outcome
@@ -309,7 +309,7 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 				Value:        value,
 			})
 			if targetID != "" {
-				combat.pushLog(fmt.Sprintf("%s hit %s for %d.", enemy.Name, ownerLabel(targetID), value))
+				combat.pushLog(fmt.Sprintf("%s이(가) %s에게 %d 피해를 입혔다.", enemy.Name, ownerLabel(targetID), value))
 				enemyTargets = append(enemyTargets, targetID)
 			}
 			if len(combat.alivePlayerUnits()) == 0 {
@@ -327,7 +327,7 @@ func (combat *CombatState) resolveTurn() TurnResolution {
 
 	if len(combat.alivePlayerUnits()) == 0 {
 		combat.Outcome = CombatOutcomeDefeat
-		combat.pushLog("The party has fallen.")
+		combat.pushLog("파티가 전멸했다.")
 	}
 
 	if guideReveal {

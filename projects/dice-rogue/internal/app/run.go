@@ -65,7 +65,7 @@ func (run *RunState) togglePartySelection(id string) {
 
 func (run *RunState) selectMapNode(id string) error {
 	if run == nil || run.Screen != ScreenMap {
-		return fmt.Errorf("map screen unavailable")
+		return fmt.Errorf("맵 화면이 아닙니다")
 	}
 	allowed := false
 	for _, nextID := range run.NextNodeIDs {
@@ -75,11 +75,11 @@ func (run *RunState) selectMapNode(id string) error {
 		}
 	}
 	if !allowed {
-		return fmt.Errorf("node %s is not available", id)
+		return fmt.Errorf("선택할 수 없는 노드입니다: %s", id)
 	}
 	node, ok := mapNodeByID(id)
 	if !ok {
-		return fmt.Errorf("unknown node %s", id)
+		return fmt.Errorf("알 수 없는 노드입니다: %s", id)
 	}
 	switch node.Kind {
 	case NodeKindRest:
@@ -89,21 +89,21 @@ func (run *RunState) selectMapNode(id string) error {
 		_, err := run.startEncounterForNode(id)
 		return err
 	default:
-		return fmt.Errorf("unsupported node kind: %s", node.Kind)
+		return fmt.Errorf("지원하지 않는 노드 종류입니다: %s", node.Kind)
 	}
 }
 
 func (run *RunState) startEncounterForNode(id string) (*CombatState, error) {
 	if run == nil {
-		return nil, fmt.Errorf("run unavailable")
+		return nil, fmt.Errorf("런 상태를 찾을 수 없습니다")
 	}
 	node, ok := mapNodeByID(id)
 	if !ok {
-		return nil, fmt.Errorf("unknown node %s", id)
+		return nil, fmt.Errorf("알 수 없는 노드입니다: %s", id)
 	}
 	encounter, ok := encounterByID(node.EncounterID)
 	if !ok {
-		return nil, fmt.Errorf("unknown encounter %s", node.EncounterID)
+		return nil, fmt.Errorf("알 수 없는 전투입니다: %s", node.EncounterID)
 	}
 	party := cloneUnits(run.PartyUnits)
 	for idx := range party {
@@ -139,28 +139,28 @@ func (run *RunState) resolveCombatTurn() TurnResolution {
 	switch summary.Outcome {
 	case CombatOutcomeEscape:
 		run.Outcome = OutcomeState{
-			Title:       "Escaped",
-			Body:        "The guide found a safe exit from the fight.",
+			Title:       "도주 성공",
+			Body:        "길잡이가 전장을 빠져나갈 길을 찾아냈습니다.",
 			CanContinue: true,
 		}
 	case CombatOutcomeVictory:
 		if node.Kind == NodeKindBoss {
 			run.Outcome = OutcomeState{
-				Title:    "Act Cleared",
-				Body:     "The boss is defeated. The first act is complete.",
+				Title:    "1막 클리어",
+				Body:     "보스를 쓰러뜨렸습니다. 1막을 돌파했습니다.",
 				RunEnded: true,
 			}
 		} else {
 			run.Outcome = OutcomeState{
-				Title:       "Victory",
-				Body:        "The party survived the encounter.",
+				Title:       "승리",
+				Body:        "파티가 전투를 돌파했습니다.",
 				CanContinue: true,
 			}
 		}
 	case CombatOutcomeDefeat:
 		run.Outcome = OutcomeState{
-			Title:    "Defeat",
-			Body:     "All three party members have fallen.",
+			Title:    "패배",
+			Body:     "파티원 3명이 모두 쓰러졌습니다.",
 			RunEnded: true,
 		}
 	}
@@ -198,8 +198,8 @@ func (run *RunState) applyRestNode(node EncounterNode) {
 	}
 	run.Screen = ScreenOutcome
 	run.Outcome = OutcomeState{
-		Title:       "Rest",
-		Body:        "The party recovered at camp.",
+		Title:       "휴식",
+		Body:        "파티가 휴식 노드에서 회복했습니다.",
 		CanContinue: true,
 	}
 }
