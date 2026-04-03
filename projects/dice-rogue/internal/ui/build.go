@@ -66,16 +66,25 @@ func buildPartyRoster(roster []PartyMember) *ebitenui.Node {
 			Style: ebitenui.Style{Color: textMuted},
 		}))
 	} else {
+		cards := make([]*ebitenui.Node, 0, len(roster))
 		for _, member := range roster {
 			label := fmt.Sprintf("%s (%s) %d/%d", member.Name, member.Role, member.HP, member.MaxHP)
 			if member.Downed {
 				label += " / downed"
 			}
-			children = append(children, ebitenui.Text(label, ebitenui.Props{
-				ID:    fmt.Sprintf("party-summary-%s", member.ID),
-				Style: ebitenui.Style{Color: textMuted},
-			}))
+			cards = append(cards, infoCard(
+				fmt.Sprintf("party-summary-%s", member.ID),
+				member.Name,
+				label,
+				colorForUnit(member),
+			))
 		}
+		children = append(children, ebitenui.Grid(ebitenui.GridConfig{
+			ID:       "party-roster-grid",
+			Columns:  3,
+			Gap:      8,
+			Children: cards,
+		}))
 	}
 	return panel("party-roster-panel", "Roster", children...)
 }
@@ -100,9 +109,10 @@ func buildPartySelectionScreen(model PartySelectionModel, callbacks Callbacks) *
 			Style: ebitenui.Style{Color: textMuted},
 		}),
 	}
+	gridChildren := make([]*ebitenui.Node, 0, len(model.Candidates))
 	for _, candidate := range model.Candidates {
 		label := fmt.Sprintf("%s / %s / HP %d", candidate.Name, candidate.Role, candidate.MaxHP)
-		children = append(children, button(
+		gridChildren = append(gridChildren, button(
 			fmt.Sprintf("party-option-%s", candidate.ID),
 			label,
 			candidate.DiceSummary,
@@ -117,6 +127,12 @@ func buildPartySelectionScreen(model PartySelectionModel, callbacks Callbacks) *
 			}(candidate.ID),
 		))
 	}
+	children = append(children, ebitenui.Grid(ebitenui.GridConfig{
+		ID:       "party-selection-grid",
+		Columns:  2,
+		Gap:      10,
+		Children: gridChildren,
+	}))
 	children = append(children, button(
 		"start-run-button",
 		"Start Run",
@@ -143,8 +159,9 @@ func buildMapScreen(model MapModel, callbacks Callbacks) *ebitenui.Node {
 			Style: ebitenui.Style{Color: textMuted},
 		}),
 	}
+	gridChildren := make([]*ebitenui.Node, 0, len(model.Nodes))
 	for _, node := range model.Nodes {
-		children = append(children, button(
+		gridChildren = append(gridChildren, button(
 			fmt.Sprintf("map-node-%s", node.ID),
 			fmt.Sprintf("%s / %s", strings.Title(node.Kind), node.Name),
 			node.Detail,
@@ -159,6 +176,12 @@ func buildMapScreen(model MapModel, callbacks Callbacks) *ebitenui.Node {
 			}(node.ID),
 		))
 	}
+	children = append(children, ebitenui.Grid(ebitenui.GridConfig{
+		ID:       "map-node-grid",
+		Columns:  2,
+		Gap:      10,
+		Children: gridChildren,
+	}))
 	return panel("map-screen", "Act Map", children...)
 }
 
@@ -172,9 +195,20 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks) *ebitenui.Node {
 			ID:    "combat-defense-summary",
 			Style: ebitenui.Style{Color: textMuted},
 		}),
-		panel("combat-party-panel", "Party", buildUnitList(model.Party, "party-card")...),
-		panel("combat-enemy-panel", "Enemies", buildUnitList(model.Enemies, "enemy-card")...),
 	}
+
+	topRow := ebitenui.Div(ebitenui.Props{
+		ID: "combat-top-row",
+		Style: ebitenui.Style{
+			Width:     ebitenui.Fill(),
+			Direction: ebitenui.Row,
+			Gap:       10,
+		},
+	},
+		fixedWidthPanel("combat-party-panel", "Party", 560, buildUnitList(model.Party, "party-card")...),
+		fixedWidthPanel("combat-enemy-panel", "Enemies", 560, buildUnitList(model.Enemies, "enemy-card")...),
+	)
+	children = append(children, topRow)
 
 	revealChildren := []*ebitenui.Node{}
 	if len(model.RevealedPatterns) == 0 {
@@ -192,18 +226,16 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks) *ebitenui.Node {
 	}
 	children = append(children, panel("revealed-patterns-panel", "Revealed Patterns", revealChildren...))
 
-	availableChildren := []*ebitenui.Node{}
+	availableChildren := make([]*ebitenui.Node, 0, len(model.AvailableDice))
 	for _, die := range model.AvailableDice {
 		detail := die.Detail
 		if die.Forced {
 			detail += " / forced"
 		}
-		availableChildren = append(availableChildren, button(
+		availableChildren = append(availableChildren, compactButton(
 			fmt.Sprintf("available-die-%s", die.ID),
 			die.Label,
 			detail,
-			false,
-			false,
 			func(id string) func() {
 				return func() {
 					if callbacks.OnSelectDie != nil {
@@ -214,47 +246,78 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks) *ebitenui.Node {
 		))
 	}
 	if len(availableChildren) == 0 {
-		availableChildren = append(availableChildren, ebitenui.TextBlock("No manual choices left in the current pool.", ebitenui.Props{
-			ID:    "available-dice-empty",
-			Style: ebitenui.Style{Color: textMuted},
-		}))
+		availableChildren = append(availableChildren, infoCard(
+			"available-dice-empty",
+			"No choices",
+			"No manual choices left in the current pool.",
+			textMuted,
+		))
 	}
-	children = append(children, scrollPanel("available-dice-panel", "Available Dice", availableChildren...))
+	children = append(children, panel("available-dice-panel", "Available Dice",
+		ebitenui.Grid(ebitenui.GridConfig{
+			ID:       "available-dice-grid",
+			Columns:  3,
+			Gap:      8,
+			Children: availableChildren,
+		}),
+	))
 
-	selectedChildren := []*ebitenui.Node{}
+	selectedChildren := make([]*ebitenui.Node, 0, len(model.SelectedDice))
 	for _, die := range model.SelectedDice {
 		text := die.Label
 		if die.Forced {
 			text += " / forced"
 		}
-		selectedChildren = append(selectedChildren, ebitenui.Text(text, ebitenui.Props{
-			ID:    fmt.Sprintf("selected-die-%s", die.ID),
-			Style: ebitenui.Style{Color: textMuted},
-		}))
+		selectedChildren = append(selectedChildren, infoCard(
+			fmt.Sprintf("selected-die-%s", die.ID),
+			text,
+			die.Detail,
+			textMuted,
+		))
 	}
 	if len(selectedChildren) == 0 {
-		selectedChildren = append(selectedChildren, ebitenui.TextBlock("Select three dice to resolve the turn.", ebitenui.Props{
-			ID:    "selected-dice-empty",
-			Style: ebitenui.Style{Color: textMuted},
-		}))
+		selectedChildren = append(selectedChildren, infoCard(
+			"selected-dice-empty",
+			"Select Dice",
+			"Select three dice to resolve the turn.",
+			textMuted,
+		))
 	}
-	children = append(children, panel("selected-dice-panel", "Selected Dice", selectedChildren...))
+	children = append(children, panel("selected-dice-panel", "Selected Dice",
+		ebitenui.Grid(ebitenui.GridConfig{
+			ID:       "selected-dice-grid",
+			Columns:  3,
+			Gap:      8,
+			Children: selectedChildren,
+		}),
+	))
 
-	logChildren := []*ebitenui.Node{}
+	logChildren := make([]*ebitenui.Node, 0, len(model.Logs))
 	if len(model.Logs) == 0 {
-		logChildren = append(logChildren, ebitenui.TextBlock("Turn logs appear here after combat resolves.", ebitenui.Props{
-			ID:    "combat-log-empty",
-			Style: ebitenui.Style{Color: textMuted},
-		}))
+		logChildren = append(logChildren, infoCard(
+			"combat-log-empty",
+			"No logs yet",
+			"Turn logs appear here after combat resolves.",
+			textMuted,
+		))
 	} else {
 		for index, line := range model.Logs {
-			logChildren = append(logChildren, ebitenui.Text(line, ebitenui.Props{
-				ID:    fmt.Sprintf("combat-log-%d", index),
-				Style: ebitenui.Style{Color: textMuted},
-			}))
+			logChildren = append(logChildren, infoCard(
+				fmt.Sprintf("combat-log-%d", index),
+				fmt.Sprintf("Log %d", index+1),
+				line,
+				textMuted,
+			))
 		}
 	}
-	children = append(children, scrollPanel("combat-log-panel", "Log", logChildren...))
+	children = append(children, panel("combat-log-panel", "Log",
+		ebitenui.Grid(ebitenui.GridConfig{
+			ID:       "combat-log-grid",
+			Columns:  2,
+			Gap:      8,
+			Children: logChildren,
+		}),
+	))
 	children = append(children, button(
 		"resolve-turn-button",
 		"Resolve Turn",
@@ -355,28 +418,6 @@ func panel(id string, title string, children ...*ebitenui.Node) *ebitenui.Node {
 	}, content...)
 }
 
-func scrollPanel(id string, title string, children ...*ebitenui.Node) *ebitenui.Node {
-	return panel(id, title,
-		ebitenui.ScrollView(ebitenui.Props{
-			ID: id + "-scroll",
-			Style: ebitenui.Style{
-				Width:     ebitenui.Fill(),
-				Height:    ebitenui.Px(160),
-				Direction: ebitenui.Column,
-			},
-		},
-			ebitenui.Div(ebitenui.Props{
-				ID: id + "-content",
-				Style: ebitenui.Style{
-					Width:     ebitenui.Fill(),
-					Direction: ebitenui.Column,
-					Gap:       6,
-				},
-			}, children...),
-		),
-	)
-}
-
 func button(id string, label string, detail string, selected bool, disabled bool, onClick func()) *ebitenui.Node {
 	background := panelBackground
 	if selected {
@@ -417,6 +458,83 @@ func button(id string, label string, detail string, selected bool, disabled bool
 			Style: ebitenui.Style{Color: textMuted},
 		}),
 	)
+}
+
+func compactButton(id string, label string, detail string, onClick func()) *ebitenui.Node {
+	handlers := ebitenui.EventHandlers{}
+	if onClick != nil {
+		handlers.OnClick = func(ctx ebitenui.EventContext) {
+			onClick()
+		}
+	}
+	return ebitenui.InteractiveButton(ebitenui.Props{
+		ID:       id,
+		Handlers: handlers,
+		Style: ebitenui.Style{
+			Width:           ebitenui.Fill(),
+			Direction:       ebitenui.Column,
+			Padding:         ebitenui.All(8),
+			Gap:             4,
+			BackgroundColor: color.RGBA{R: 34, G: 41, B: 59, A: 255},
+			BorderColor:     borderColor,
+			BorderWidth:     1,
+		},
+	},
+		ebitenui.Text(label, ebitenui.Props{
+			ID:    id + "-label",
+			Style: ebitenui.Style{Color: textStrong},
+		}),
+		ebitenui.TextBlock(detail, ebitenui.Props{
+			ID:    id + "-detail",
+			Style: ebitenui.Style{Color: textMuted},
+		}),
+	)
+}
+
+func infoCard(id string, title string, detail string, textColor color.Color) *ebitenui.Node {
+	return ebitenui.Div(ebitenui.Props{
+		ID: id,
+		Style: ebitenui.Style{
+			Width:           ebitenui.Fill(),
+			Direction:       ebitenui.Column,
+			Padding:         ebitenui.All(8),
+			Gap:             4,
+			BackgroundColor: color.RGBA{R: 34, G: 41, B: 59, A: 255},
+			BorderColor:     borderColor,
+			BorderWidth:     1,
+		},
+	},
+		ebitenui.Text(title, ebitenui.Props{
+			ID:    id + "-title",
+			Style: ebitenui.Style{Color: textStrong},
+		}),
+		ebitenui.TextBlock(detail, ebitenui.Props{
+			ID:    id + "-detail",
+			Style: ebitenui.Style{Color: textColor},
+		}),
+	)
+}
+
+func fixedWidthPanel(id string, title string, width float64, children ...*ebitenui.Node) *ebitenui.Node {
+	content := []*ebitenui.Node{
+		ebitenui.Text(title, ebitenui.Props{
+			ID:    id + "-title",
+			Style: ebitenui.Style{Color: textStrong},
+		}),
+	}
+	content = append(content, children...)
+	return ebitenui.Div(ebitenui.Props{
+		ID: id,
+		Style: ebitenui.Style{
+			Width:           ebitenui.Px(width),
+			Direction:       ebitenui.Column,
+			Padding:         ebitenui.All(12),
+			Gap:             8,
+			BackgroundColor: panelBackground,
+			BorderColor:     borderColor,
+			BorderWidth:     1,
+		},
+	}, content...)
 }
 
 func fallback(value string, fallbackValue string) string {

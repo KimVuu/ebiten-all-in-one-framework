@@ -29,6 +29,12 @@ func TestGameDebugSurfaceAndScreenFlow(t *testing.T) {
 	if _, ok := game.dom.FindByID("party-option-human-warrior"); !ok {
 		t.Fatalf("expected warrior party button")
 	}
+	if _, ok := game.dom.FindByID("party-selection-grid"); !ok {
+		t.Fatalf("expected party selection grid")
+	}
+	if containsTag(game.dom.Root, ebitenui.TagScrollView) {
+		t.Fatalf("expected no scroll view nodes on party selection screen")
+	}
 
 	if err := game.startDebugBridge("127.0.0.1:0"); err != nil {
 		t.Fatalf("startDebugBridge failed: %v", err)
@@ -77,6 +83,12 @@ func TestGameDebugSurfaceAndScreenFlow(t *testing.T) {
 	if _, ok := game.dom.FindByID("map-screen"); !ok {
 		t.Fatalf("expected map screen after starting run")
 	}
+	if _, ok := game.dom.FindByID("map-node-grid"); !ok {
+		t.Fatalf("expected map node grid")
+	}
+	if containsTag(game.dom.Root, ebitenui.TagScrollView) {
+		t.Fatalf("expected no scroll view nodes on map screen")
+	}
 
 	clickAndStep(t, game, "map-node-normal-a")
 	if got, want := game.currentScreen(), ScreenCombat; got != want {
@@ -87,6 +99,15 @@ func TestGameDebugSurfaceAndScreenFlow(t *testing.T) {
 	}
 	if _, ok := game.dom.FindByID("resolve-turn-button"); !ok {
 		t.Fatalf("expected resolve turn button")
+	}
+	if _, ok := game.dom.FindByID("available-dice-grid"); !ok {
+		t.Fatalf("expected available dice grid")
+	}
+	if _, ok := game.dom.FindByID("combat-log-grid"); !ok {
+		t.Fatalf("expected combat log grid")
+	}
+	if containsTag(game.dom.Root, ebitenui.TagScrollView) {
+		t.Fatalf("expected no scroll view nodes on combat screen")
 	}
 
 	ui := game.uiSnapshot()
@@ -118,4 +139,19 @@ func clickAndStep(t *testing.T, game *Game, nodeID string) {
 			t.Fatalf("step %d after click failed: %v", i, err)
 		}
 	}
+}
+
+func containsTag(node *ebitenui.Node, tag ebitenui.Tag) bool {
+	if node == nil {
+		return false
+	}
+	if node.Tag == tag {
+		return true
+	}
+	for _, child := range node.Children {
+		if containsTag(child, tag) {
+			return true
+		}
+	}
+	return false
 }
