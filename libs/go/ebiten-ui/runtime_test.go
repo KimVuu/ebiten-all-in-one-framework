@@ -54,6 +54,117 @@ func TestRuntimeDispatchesButtonClickAndFocus(t *testing.T) {
 	}
 }
 
+func TestRuntimeDispatchesPointerLifecycleWithoutRepeatingClick(t *testing.T) {
+	downs := 0
+	holds := 0
+	ups := 0
+	clicks := 0
+	dom := ebitenui.New(
+		ebitenui.Div(ebitenui.Props{
+			ID: "root",
+			Style: ebitenui.Style{
+				Width:   ebitenui.Px(200),
+				Height:  ebitenui.Px(80),
+				Padding: ebitenui.All(8),
+			},
+		},
+			ebitenui.InteractiveButton(ebitenui.Props{
+				ID: "press-button",
+				Style: ebitenui.Style{
+					Width:  ebitenui.Px(120),
+					Height: ebitenui.Px(40),
+				},
+				Handlers: ebitenui.EventHandlers{
+					OnPointerDown: func(ctx ebitenui.EventContext) {
+						downs++
+					},
+					OnPointerHold: func(ctx ebitenui.EventContext) {
+						holds++
+					},
+					OnPointerUp: func(ctx ebitenui.EventContext) {
+						ups++
+					},
+					OnClick: func(ctx ebitenui.EventContext) {
+						clicks++
+					},
+				},
+			},
+				ebitenui.Text("Press", ebitenui.Props{ID: "press-button-label"}),
+			),
+		),
+	)
+
+	runtime := ebitenui.NewRuntime()
+	viewport := ebitenui.Viewport{Width: 200, Height: 80}
+
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 20, PointerY: 20})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 20, PointerY: 20, PointerDown: true})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 20, PointerY: 20, PointerDown: true})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 20, PointerY: 20, PointerDown: true})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 20, PointerY: 20})
+
+	if downs != 1 {
+		t.Fatalf("expected one pointer down event, got %d", downs)
+	}
+	if holds != 2 {
+		t.Fatalf("expected hold on sustained press frames, got %d", holds)
+	}
+	if ups != 1 {
+		t.Fatalf("expected one pointer up event, got %d", ups)
+	}
+	if clicks != 1 {
+		t.Fatalf("expected single click on release, got %d", clicks)
+	}
+}
+
+func TestRuntimeReleaseOutsideStillDispatchesPointerUpWithoutClick(t *testing.T) {
+	ups := 0
+	clicks := 0
+	dom := ebitenui.New(
+		ebitenui.Div(ebitenui.Props{
+			ID: "root",
+			Style: ebitenui.Style{
+				Width:   ebitenui.Px(220),
+				Height:  ebitenui.Px(100),
+				Padding: ebitenui.All(8),
+			},
+		},
+			ebitenui.InteractiveButton(ebitenui.Props{
+				ID: "cancel-button",
+				Style: ebitenui.Style{
+					Width:  ebitenui.Px(120),
+					Height: ebitenui.Px(40),
+				},
+				Handlers: ebitenui.EventHandlers{
+					OnPointerUp: func(ctx ebitenui.EventContext) {
+						ups++
+					},
+					OnClick: func(ctx ebitenui.EventContext) {
+						clicks++
+					},
+				},
+			},
+				ebitenui.Text("Cancel", ebitenui.Props{ID: "cancel-button-label"}),
+			),
+		),
+	)
+
+	runtime := ebitenui.NewRuntime()
+	viewport := ebitenui.Viewport{Width: 220, Height: 100}
+
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 20, PointerY: 20})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 20, PointerY: 20, PointerDown: true})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 180, PointerY: 80, PointerDown: true})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 180, PointerY: 80})
+
+	if ups != 1 {
+		t.Fatalf("expected pointer up on release outside, got %d", ups)
+	}
+	if clicks != 0 {
+		t.Fatalf("expected no click after release outside, got %d", clicks)
+	}
+}
+
 func TestRuntimeCheckboxOnChangeUsesRuntimeValue(t *testing.T) {
 	var values []bool
 	dom := ebitenui.New(ebitenui.Checkbox(ebitenui.CheckboxConfig{

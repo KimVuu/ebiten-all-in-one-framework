@@ -25,6 +25,7 @@
 - `LayoutNode`의 `ParentID`, `ContentBounds`, `ClipRect`, `ClickableRect`, `Overflow` 계산 필드
 - `ValidateLayout` 기반의 레이아웃 검증과 constraint patch 제안
 - `Runtime`, `InputSnapshot`, `EventHandlers` 기반 상호작용 런타임
+- `OnPointerDown`, `OnPointerHold`, `OnPointerUp`, `OnClick` 기반 버튼 포인터 lifecycle
 - `Tab`, `Escape`, arrow key, `Home/End`, `SelectAll`, shortcut 문자열 기반 포커스/텍스트 편집
 - `OnClick`, `OnChange`, `OnSubmit` 콜백이 연결된 주요 입력 컴포넌트
 - Ebiten 렌더러 서브패키지
@@ -131,6 +132,13 @@ _ = layout
 ```
 
 입력 컴포넌트는 `OnChange`, `OnSubmit`, `OnOpenChange`, `OnSelect` 같은 콜백을 받아 실제 기능 연결이 가능하다.
+
+버튼과 interactive node는 포인터 lifecycle을 분리해서 다룰 수 있다.
+
+- `OnPointerDown`: 누르기 시작할 때 1회
+- `OnPointerHold`: 누르고 있는 동안 지속 프레임마다
+- `OnPointerUp`: 손을 뗄 때 1회
+- `OnClick`: 같은 타깃에서 눌렀다가 뗐을 때 1회
 
 기본 런타임은 `Tab` 포커스 이동, `Escape` 포커스 해제, `Enter` 기반 focused button 활성화, arrow 기반 scroll dispatch까지 처리한다.
 

@@ -49,6 +49,7 @@ type EventHandlers struct {
 	OnPointerLeave func(EventContext)
 	OnPointerMove  func(EventContext)
 	OnPointerDown  func(EventContext)
+	OnPointerHold  func(EventContext)
 	OnPointerUp    func(EventContext)
 	OnClick        func(EventContext)
 	OnFocus        func(EventContext)
@@ -68,6 +69,7 @@ func (handlers EventHandlers) hasAny() bool {
 		handlers.OnPointerLeave != nil ||
 		handlers.OnPointerMove != nil ||
 		handlers.OnPointerDown != nil ||
+		handlers.OnPointerHold != nil ||
 		handlers.OnPointerUp != nil ||
 		handlers.OnClick != nil ||
 		handlers.OnFocus != nil ||
@@ -179,6 +181,14 @@ func (runtime *Runtime) Update(dom *DOM, viewport Viewport, input InputSnapshot)
 		if pressed, ok := dom.FindByID(runtime.pressedID); ok {
 			pressed.Props.State.Pressed = input.PointerDown
 		}
+	}
+
+	if runtime.prevInput.PointerDown && input.PointerDown && runtime.pressedID != "" {
+		runtime.dispatchByID(dom, runtime.pressedID, input, func(handlers EventHandlers, ctx EventContext) {
+			if handlers.OnPointerHold != nil {
+				handlers.OnPointerHold(ctx)
+			}
+		})
 	}
 
 	if runtime.prevInput.PointerDown && !input.PointerDown {

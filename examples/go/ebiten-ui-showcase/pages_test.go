@@ -21,6 +21,9 @@ func TestShowcaseRegistryContainsGroupsAndLeafPages(t *testing.T) {
 	if _, ok := registry.Pages["inputs/input-field"]; !ok {
 		t.Fatalf("expected input-field page")
 	}
+	if _, ok := registry.Pages["inputs/button-events"]; !ok {
+		t.Fatalf("expected button-events page")
+	}
 	if _, ok := registry.Pages["foundations/theme"]; !ok {
 		t.Fatalf("expected theme page")
 	}
@@ -73,6 +76,55 @@ func TestBuildShowcaseDOMBuildsReactivePage(t *testing.T) {
 	}
 	if _, ok := dom.FindByID("reactive-derived-summary"); !ok {
 		t.Fatalf("expected reactive derived summary")
+	}
+}
+
+func TestShowcaseButtonEventsPageUpdatesLifecycleBindings(t *testing.T) {
+	game := newGame(true)
+	game.width = 1280
+	game.height = 720
+	if !game.router.Navigate("inputs/button-events") {
+		t.Fatalf("expected button-events page route")
+	}
+	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+		t.Fatalf("step failed: %v", err)
+	}
+
+	layout := game.currentLayout()
+	button, ok := layout.FindByID("button-events-demo-button")
+	if !ok {
+		t.Fatalf("expected button events demo button")
+	}
+	x := button.Frame.X + button.Frame.Width*0.5
+	y := button.Frame.Y + button.Frame.Height*0.5
+
+	if err := game.step(ebitenui.InputSnapshot{PointerX: x, PointerY: y}); err != nil {
+		t.Fatalf("hover step failed: %v", err)
+	}
+	if err := game.step(ebitenui.InputSnapshot{PointerX: x, PointerY: y, PointerDown: true}); err != nil {
+		t.Fatalf("down step failed: %v", err)
+	}
+	if err := game.step(ebitenui.InputSnapshot{PointerX: x, PointerY: y, PointerDown: true}); err != nil {
+		t.Fatalf("hold step failed: %v", err)
+	}
+	if err := game.step(ebitenui.InputSnapshot{PointerX: x, PointerY: y}); err != nil {
+		t.Fatalf("up step failed: %v", err)
+	}
+
+	if got, want := game.bindings.ButtonDowns.Get(), 1; got != want {
+		t.Fatalf("button down count mismatch: got %d want %d", got, want)
+	}
+	if got := game.bindings.ButtonHolds.Get(); got < 1 {
+		t.Fatalf("expected hold count, got %d", got)
+	}
+	if got, want := game.bindings.ButtonUps.Get(), 1; got != want {
+		t.Fatalf("button up count mismatch: got %d want %d", got, want)
+	}
+	if got, want := game.bindings.ButtonClicks.Get(), 1; got != want {
+		t.Fatalf("button click count mismatch: got %d want %d", got, want)
+	}
+	if got, want := game.bindings.ButtonPhase.Get(), "click"; got != want {
+		t.Fatalf("button phase mismatch: got %q want %q", got, want)
 	}
 }
 

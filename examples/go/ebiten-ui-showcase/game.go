@@ -49,6 +49,11 @@ type showcaseBindingSnapshot struct {
 	Bio            string
 	Hardcore       bool
 	MusicVolume    float64
+	ButtonPhase    string
+	ButtonDowns    int
+	ButtonHolds    int
+	ButtonUps      int
+	ButtonClicks   int
 }
 
 func newGame(debugMode bool) *game {
@@ -429,6 +434,11 @@ func (g *game) bindingSnapshot() showcaseBindingSnapshot {
 		Bio:            g.bindings.Bio.Get(),
 		Hardcore:       g.bindings.Hardcore.Get(),
 		MusicVolume:    g.bindings.MusicVolume.Get(),
+		ButtonPhase:    g.bindings.ButtonPhase.Get(),
+		ButtonDowns:    g.bindings.ButtonDowns.Get(),
+		ButtonHolds:    g.bindings.ButtonHolds.Get(),
+		ButtonUps:      g.bindings.ButtonUps.Get(),
+		ButtonClicks:   g.bindings.ButtonClicks.Get(),
 	}
 }
 
@@ -504,7 +514,6 @@ func (g *game) currentFrame() int {
 }
 
 func stabilizeShowcaseInput(input ebitenui.InputSnapshot) ebitenui.InputSnapshot {
-	input.PointerDown = false
 	input.ScrollX = 0
 	input.ScrollY = 0
 	input.Text = ""

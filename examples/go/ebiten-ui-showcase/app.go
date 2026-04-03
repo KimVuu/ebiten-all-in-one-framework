@@ -633,6 +633,9 @@ func buildShowcaseLiveState(currentPageID string, bindings *showcaseBindings, pr
 	summary := ebitenui.NewComputed(func() string {
 		return fmt.Sprintf("%s · %s · music %.0f%%", name.Get(), resolution.Get(), bindings.MusicVolume.Get())
 	})
+	buttonLifecycle := ebitenui.NewComputed(func() string {
+		return fmt.Sprintf("down %d · hold %d · up %d · click %d", bindings.ButtonDowns.Get(), bindings.ButtonHolds.Get(), bindings.ButtonUps.Get(), bindings.ButtonClicks.Get())
+	})
 
 	return ebitenui.Div(ebitenui.Props{
 		ID:    "page-live-state",
@@ -654,6 +657,8 @@ func buildShowcaseLiveState(currentPageID string, bindings *showcaseBindings, pr
 		liveStateRow("live-state-hardcore", "Hardcore", hardcore.Get(), preset),
 		liveStateRow("live-state-bio-lines", "Bio", bioLines.Get(), preset),
 		liveStateRow("live-state-volume", "Music volume", fmt.Sprintf("%.0f%%", bindings.MusicVolume.Get()), preset),
+		liveStateRow("live-state-button-phase", "Button phase", bindings.ButtonPhase.Get(), preset),
+		liveStateRow("live-state-button-lifecycle", "Button lifecycle", buttonLifecycle.Get(), preset),
 		liveStateRow("live-state-derived-summary", "Derived summary", summary.Get(), preset),
 	)
 }
@@ -694,6 +699,11 @@ func newShowcaseBindings() *showcaseBindings {
 		Bio:            ebitenui.NewRef("Explorer of the ember valley."),
 		Hardcore:       ebitenui.NewRef(true),
 		MusicVolume:    ebitenui.NewRef(65.0),
+		ButtonPhase:    ebitenui.NewRef("idle"),
+		ButtonDowns:    ebitenui.NewRef(0),
+		ButtonHolds:    ebitenui.NewRef(0),
+		ButtonUps:      ebitenui.NewRef(0),
+		ButtonClicks:   ebitenui.NewRef(0),
 	}
 }
 

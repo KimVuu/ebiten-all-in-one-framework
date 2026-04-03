@@ -24,6 +24,11 @@ type showcaseBindings struct {
 	Bio            *ebitenui.Ref[string]
 	Hardcore       *ebitenui.Ref[bool]
 	MusicVolume    *ebitenui.Ref[float64]
+	ButtonPhase    *ebitenui.Ref[string]
+	ButtonDowns    *ebitenui.Ref[int]
+	ButtonHolds    *ebitenui.Ref[int]
+	ButtonUps      *ebitenui.Ref[int]
+	ButtonClicks   *ebitenui.Ref[int]
 }
 
 type showcaseCallbacks struct {
@@ -307,7 +312,7 @@ func buildShowcasePageRegistry() ShowcasePageRegistry {
 		groupRoute("foundations", "Foundations", "foundations/image", "foundations/text-block", "foundations/spacer", "foundations/stack", "foundations/scroll-view", "foundations/theme"),
 		groupRoute("reactive", "Reactive", "reactive/ref-and-computed", "reactive/controlled-inputs"),
 		groupRoute("tags", "Tags", "tags/basic-tags"),
-		groupRoute("inputs", "Inputs", "inputs/input-field", "inputs/dropdown", "inputs/textarea", "inputs/radio-group", "inputs/stepper"),
+		groupRoute("inputs", "Inputs", "inputs/input-field", "inputs/button-events", "inputs/dropdown", "inputs/textarea", "inputs/radio-group", "inputs/stepper"),
 		groupRoute("layout", "Layout", "layout/grid"),
 		groupRoute("overlay", "Overlay", "overlay/modal", "overlay/tooltip"),
 		groupRoute("data", "Data", "data/tabs"),
@@ -322,6 +327,62 @@ func buildShowcasePageRegistry() ShowcasePageRegistry {
 }
 
 func addInputPages(add func(ShowcasePageSpec)) {
+	add(ShowcasePageSpec{
+		ID:          "inputs/button-events",
+		Title:       "Button Events",
+		Group:       "inputs",
+		Description: "Buttons expose separate pointer lifecycle hooks for down, hold, up, and single-click activation.",
+		UsageNotes:  "Use `OnClick` for one-shot actions, `OnPointerHold` for sustained press behavior, and `OnPointerDown`/`OnPointerUp` when the exact press boundary matters.",
+		CodeExample: "ebitenui.InteractiveButton(ebitenui.Props{\n  ID: \"save-button\",\n  Handlers: ebitenui.EventHandlers{\n    OnPointerDown: func(ctx ebitenui.EventContext) { /* press start */ },\n    OnPointerHold: func(ctx ebitenui.EventContext) { /* hold */ },\n    OnPointerUp: func(ctx ebitenui.EventContext) { /* release */ },\n    OnClick: func(ctx ebitenui.EventContext) { /* single click */ },\n  },\n}, ebitenui.Text(\"Save\", ebitenui.Props{}))",
+		DemoBuilder: func(ctx ShowcaseDemoContext) *ebitenui.Node {
+			return ebitenui.Div(ebitenui.Props{
+				ID:    "button-events-demo",
+				Style: detailSectionStyleForChrome(ctx.Chrome),
+			},
+				ebitenui.Text("Press Lifecycle", ebitenui.Props{
+					ID:    "button-events-demo-title",
+					Style: detailTitleStyleForChrome(ctx.Chrome),
+				}),
+				ebitenui.InteractiveButton(ebitenui.Props{
+					ID: "button-events-demo-button",
+					Handlers: ebitenui.EventHandlers{
+						OnPointerDown: func(eventCtx ebitenui.EventContext) {
+							ctx.Bindings.ButtonPhase.Set("pointer-down")
+							ctx.Bindings.ButtonDowns.Set(ctx.Bindings.ButtonDowns.Get() + 1)
+						},
+						OnPointerHold: func(eventCtx ebitenui.EventContext) {
+							ctx.Bindings.ButtonPhase.Set("pointer-hold")
+							ctx.Bindings.ButtonHolds.Set(ctx.Bindings.ButtonHolds.Get() + 1)
+						},
+						OnPointerUp: func(eventCtx ebitenui.EventContext) {
+							ctx.Bindings.ButtonPhase.Set("pointer-up")
+							ctx.Bindings.ButtonUps.Set(ctx.Bindings.ButtonUps.Get() + 1)
+						},
+						OnClick: func(eventCtx ebitenui.EventContext) {
+							ctx.Bindings.ButtonPhase.Set("click")
+							ctx.Bindings.ButtonClicks.Set(ctx.Bindings.ButtonClicks.Get() + 1)
+						},
+					},
+					Style: ebitenui.Style{
+						Padding:         ebitenui.Insets{Top: 12, Right: 16, Bottom: 12, Left: 16},
+						BackgroundColor: ctx.Chrome.Accent,
+						BorderColor:     ctx.Chrome.AccentSoft,
+						BorderWidth:     1,
+					},
+				},
+					ebitenui.Text("Press, Hold, Release", ebitenui.Props{
+						ID:    "button-events-demo-button-label",
+						Style: ebitenui.Style{Color: ctx.Chrome.BadgeText},
+					}),
+				),
+				liveStateRow("button-events-phase", "Current phase", ctx.Bindings.ButtonPhase.Get(), showcaseThemePreset{Chrome: ctx.Chrome}),
+				liveStateRow("button-events-down", "Pointer down", fmt.Sprintf("%d", ctx.Bindings.ButtonDowns.Get()), showcaseThemePreset{Chrome: ctx.Chrome}),
+				liveStateRow("button-events-hold", "Pointer hold", fmt.Sprintf("%d", ctx.Bindings.ButtonHolds.Get()), showcaseThemePreset{Chrome: ctx.Chrome}),
+				liveStateRow("button-events-up", "Pointer up", fmt.Sprintf("%d", ctx.Bindings.ButtonUps.Get()), showcaseThemePreset{Chrome: ctx.Chrome}),
+				liveStateRow("button-events-click", "Single click", fmt.Sprintf("%d", ctx.Bindings.ButtonClicks.Get()), showcaseThemePreset{Chrome: ctx.Chrome}),
+			)
+		},
+	})
 	add(ShowcasePageSpec{
 		ID:          "inputs/input-field",
 		Title:       "InputField",

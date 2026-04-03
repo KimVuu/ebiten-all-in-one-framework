@@ -74,6 +74,24 @@ func TestBuildShowcaseDOMShowsCurrentPageTitleCodeAndDemo(t *testing.T) {
 	}
 }
 
+func TestBuildShowcaseDOMBuildsButtonLifecyclePage(t *testing.T) {
+	dom := buildShowcaseDOMWithState(showcaseLayoutState{
+		CurrentPageID: "inputs/button-events",
+	}, nil, nil, nil)
+
+	title, ok := dom.FindByID("page-title")
+	if !ok || title.Text != "Button Events" {
+		t.Fatalf("expected button events page title, got %#v", title)
+	}
+	code, ok := dom.FindByID("page-code-block")
+	if !ok || !strings.Contains(code.Text, "OnPointerHold") {
+		t.Fatalf("expected pointer lifecycle code example, got %#v", code)
+	}
+	if _, ok := dom.FindByID("button-events-demo-button"); !ok {
+		t.Fatalf("expected button events demo button")
+	}
+}
+
 func TestShowcaseSnapshotsIncludeCurrentPageMetadata(t *testing.T) {
 	game := newGame(false)
 

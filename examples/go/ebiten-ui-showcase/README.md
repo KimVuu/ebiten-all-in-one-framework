@@ -15,6 +15,7 @@
 - detail 영역의 live state 패널
 - `foundations/theme` 페이지에서 default theme와 override theme 비교
 - `reactive/*` 페이지에서 `Ref`와 `Computed` 기반 상태 흐름 설명
+- `inputs/button-events` 페이지에서 `OnPointerDown`, `OnPointerHold`, `OnPointerUp`, `OnClick` lifecycle 비교
 - 대표 입력/상태 페이지에서 `Ref` 기반 binding demo 사용
 
 ## 실행
@@ -44,6 +45,7 @@ go test ./...
 - `ebiten-ui` 레이아웃과 Ebiten 렌더러 연결 예시 제공
 - `PageRouter`와 `PageScreen` 기반 문서형 UI 조립 예시 제공
 - 태그, 컴포넌트, 프리셋을 페이지별로 검증하는 기준 예제 제공
+- 클릭/홀드/릴리즈 같은 버튼 pointer lifecycle을 페이지와 live state로 검증하는 예제 제공
 - `ebiten-ui-debug`로 UI tree와 주요 섹션 레이아웃을 디버그 스냅샷으로 노출하는 기준 예제 제공
 - sidebar/detail 별도 scroll과 페이지 전환을 함께 검증하는 예제 제공
 - nested layout constraint, keyboard focus/navigation, 디버그 입력 주입을 함께 검증하는 예제 제공
