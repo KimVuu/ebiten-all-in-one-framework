@@ -114,9 +114,8 @@ func (game *Game) step(input ebitenui.InputSnapshot) error {
 	game.runtime.Update(dom, viewport, input)
 
 	dom = gameui.BuildDOM(game.currentModelLocked(), game.callbacksLocked(), game.runtime)
-	game.runtime.Update(dom, viewport, stabilizeInput(input))
 	game.normalizeNonButtonFocus(dom)
-	clearPassiveInteractionStates(dom.Root)
+	game.applyRuntimeVisualStates(dom, input)
 	game.dom = dom
 	game.lastInput = input
 	return nil
@@ -137,7 +136,7 @@ func (game *Game) Draw(screen *ebiten.Image) {
 		dom = gameui.BuildDOM(game.currentModelLocked(), game.callbacksLocked(), game.runtime)
 		game.mu.RUnlock()
 		game.normalizeNonButtonFocus(dom)
-		clearPassiveInteractionStates(dom.Root)
+		game.applyRuntimeVisualStates(dom, game.lastInput)
 	}
 
 	viewport := ebitenui.Viewport{
@@ -517,14 +516,13 @@ func (game *Game) currentViewportLocked() ebitenui.Viewport {
 func (game *Game) currentLayout() *ebitenui.LayoutNode {
 	game.mu.RLock()
 	dom := game.dom
-	runtimeLayout := game.runtime.Layout()
 	viewport := game.currentViewportLocked()
 	model := game.currentModelLocked()
 	callbacks := game.callbacksLocked()
 	game.mu.RUnlock()
 
-	if runtimeLayout != nil {
-		return runtimeLayout
+	if dom != nil {
+		return dom.Layout(viewport)
 	}
 	if dom == nil {
 		dom = gameui.BuildDOM(model, callbacks, game.runtime)
@@ -568,19 +566,29 @@ func (game *Game) normalizeNonButtonFocus(dom *ebitenui.DOM) {
 	game.runtime.ClearFocus(dom, ebitenui.InputSnapshot{})
 }
 
-func clearPassiveInteractionStates(node *ebitenui.Node) {
-	if node == nil {
+func (game *Game) applyRuntimeVisualStates(dom *ebitenui.DOM, input ebitenui.InputSnapshot) {
+	if game.runtime == nil || dom == nil {
 		return
 	}
-	if node.Tag != ebitenui.TagButton {
-		state := node.Props.State
-		state.Hovered = false
-		state.Pressed = false
-		state.Focused = false
-		node.Props.State = state
+	hoveredID := game.runtime.HoveredID()
+	focusedID := game.runtime.FocusedID()
+
+	if hoveredID != "" {
+		if node, ok := dom.FindByID(hoveredID); ok && node.Tag == ebitenui.TagButton {
+			state := node.Props.State
+			state.Hovered = true
+			node.Props.State = state
+		}
 	}
-	for _, child := range node.Children {
-		clearPassiveInteractionStates(child)
+	if focusedID != "" {
+		if node, ok := dom.FindByID(focusedID); ok && node.Tag == ebitenui.TagButton {
+			state := node.Props.State
+			state.Focused = true
+			if input.PointerDown {
+				state.Pressed = true
+			}
+			node.Props.State = state
+		}
 	}
 }
 
@@ -616,32 +624,6 @@ func (game *Game) collectInput() ebitenui.InputSnapshot {
 	input.Alt = ebiten.IsKeyPressed(ebiten.KeyAltLeft) || ebiten.IsKeyPressed(ebiten.KeyAltRight)
 	input.Meta = ebiten.IsKeyPressed(ebiten.KeyMetaLeft) || ebiten.IsKeyPressed(ebiten.KeyMetaRight)
 	input.SelectAll = (input.Control || input.Meta) && inpututil.IsKeyJustPressed(ebiten.KeyA)
-	return input
-}
-
-func stabilizeInput(input ebitenui.InputSnapshot) ebitenui.InputSnapshot {
-	input.PointerDown = false
-	input.ScrollX = 0
-	input.ScrollY = 0
-	input.Text = ""
-	input.Backspace = false
-	input.Delete = false
-	input.Home = false
-	input.End = false
-	input.Submit = false
-	input.Space = false
-	input.SelectAll = false
-	input.Shortcut = ""
-	input.Tab = false
-	input.Escape = false
-	input.ArrowUp = false
-	input.ArrowDown = false
-	input.ArrowLeft = false
-	input.ArrowRight = false
-	input.Shift = false
-	input.Control = false
-	input.Alt = false
-	input.Meta = false
 	return input
 }
 

@@ -222,14 +222,60 @@ func TestGameOnlyButtonsKeepHoverAndFocusState(t *testing.T) {
 	}
 }
 
+func TestGameButtonTriggersOnlyOnRelease(t *testing.T) {
+	game := newGame(GameConfig{Seed: 7})
+	game.width = DefaultWindowWidth
+	game.height = DefaultWindowHeight
+
+	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+		t.Fatalf("initial step failed: %v", err)
+	}
+
+	layout := game.currentLayout()
+	buttonLayout, ok := layout.FindByID("party-option-human-warrior")
+	if !ok {
+		t.Fatalf("expected warrior button layout")
+	}
+	x := buttonLayout.Frame.X + (buttonLayout.Frame.Width / 2)
+	y := buttonLayout.Frame.Y + (buttonLayout.Frame.Height / 2)
+
+	for i := 0; i < 3; i++ {
+		if err := game.step(ebitenui.InputSnapshot{PointerX: x, PointerY: y, PointerDown: true}); err != nil {
+			t.Fatalf("hold step %d failed: %v", i, err)
+		}
+	}
+	if got := len(game.run.SelectedPartyIDs); got != 0 {
+		t.Fatalf("expected hold without release to avoid selection, got %d", got)
+	}
+
+	if err := game.step(ebitenui.InputSnapshot{PointerX: x, PointerY: y}); err != nil {
+		t.Fatalf("release step failed: %v", err)
+	}
+	if got, want := len(game.run.SelectedPartyIDs), 1; got != want {
+		t.Fatalf("expected single selection after release, got %d want %d", got, want)
+	}
+	if got, want := game.run.SelectedPartyIDs[0], "human-warrior"; got != want {
+		t.Fatalf("selected party mismatch: got %q want %q", got, want)
+	}
+}
+
 func clickAndStep(t *testing.T, game *Game, nodeID string) {
 	t.Helper()
-	result := game.debugBridgeLikeCommand("ui_click", map[string]any{"node_id": nodeID})
-	if !result.Success {
-		t.Fatalf("ui_click(%q) failed: %#v", nodeID, result)
+	layout := game.currentLayout()
+	node, ok := layout.FindByID(nodeID)
+	if !ok {
+		t.Fatalf("expected node layout %q", nodeID)
 	}
-	for i := 0; i < 3; i++ {
-		if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+	x := node.Frame.X + (node.Frame.Width / 2)
+	y := node.Frame.Y + (node.Frame.Height / 2)
+
+	steps := []ebitenui.InputSnapshot{
+		{PointerX: x, PointerY: y},
+		{PointerX: x, PointerY: y, PointerDown: true},
+		{PointerX: x, PointerY: y},
+	}
+	for i, input := range steps {
+		if err := game.step(input); err != nil {
 			t.Fatalf("step %d after click failed: %v", i, err)
 		}
 	}
