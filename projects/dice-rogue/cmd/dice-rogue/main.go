@@ -24,7 +24,7 @@ func main() {
 	}
 
 	ebiten.SetWindowTitle("주사위 로그")
-	ebiten.SetWindowSize(1280, 720)
+	ebiten.SetWindowSize(app.DefaultWindowWidth, app.DefaultWindowHeight)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
 	if err := ebiten.RunGame(game); err != nil {

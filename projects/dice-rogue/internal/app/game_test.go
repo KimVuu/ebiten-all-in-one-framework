@@ -17,8 +17,8 @@ func TestGameDebugSurfaceAndScreenFlow(t *testing.T) {
 		DebugEnabled: true,
 		Seed:         7,
 	})
-	game.width = 1280
-	game.height = 720
+	game.width = DefaultWindowWidth
+	game.height = DefaultWindowHeight
 
 	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
 		t.Fatalf("initial step failed: %v", err)

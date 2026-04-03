@@ -37,6 +37,11 @@ type Game struct {
 	debugBridge *ebitendebug.Bridge
 }
 
+const (
+	DefaultWindowWidth  = 1600
+	DefaultWindowHeight = 960
+)
+
 func NewGame(config GameConfig) *Game {
 	return newGame(config)
 }
@@ -48,8 +53,8 @@ func newGame(config GameConfig) *Game {
 	}
 	_ = gameui.ApplyTextFace()
 	game := &Game{
-		width:          1280,
-		height:         720,
+		width:          DefaultWindowWidth,
+		height:         DefaultWindowHeight,
 		debugEnabled:   config.DebugEnabled,
 		renderer:       renderer.New(),
 		runtime:        ebitenui.NewRuntime(),
@@ -140,7 +145,7 @@ func (game *Game) Draw(screen *ebiten.Image) {
 }
 
 func (game *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return 1280, 720
+	return DefaultWindowWidth, DefaultWindowHeight
 }
 
 func (game *Game) currentModelLocked() gameui.Model {
@@ -493,10 +498,10 @@ func (game *Game) currentViewportLocked() ebitenui.Viewport {
 	width := game.width
 	height := game.height
 	if width <= 0 {
-		width = 1280
+		width = DefaultWindowWidth
 	}
 	if height <= 0 {
-		height = 720
+		height = DefaultWindowHeight
 	}
 	return ebitenui.Viewport{
 		Width:  float64(width),

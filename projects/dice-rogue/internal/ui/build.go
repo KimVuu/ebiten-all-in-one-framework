@@ -22,13 +22,15 @@ var (
 )
 
 const (
-	rootPadding  = 12.0
-	rootGap      = 10.0
-	panelPadding = 8.0
-	panelGap     = 6.0
-	gridGap      = 8.0
-	combatColGap = 10.0
-	minTileWidth = 180.0
+	rootPadding           = 14.0
+	rootGap               = 12.0
+	panelPadding          = 10.0
+	panelGap              = 8.0
+	gridGap               = 10.0
+	combatColGap          = 12.0
+	minTileWidth          = 210.0
+	defaultViewportWidth  = 1600.0
+	defaultViewportHeight = 960.0
 )
 
 type layoutMetrics struct {
@@ -45,7 +47,14 @@ func BuildDOM(model Model, callbacks Callbacks) *ebitenui.DOM {
 	if model.CurrentScreen != "combat" {
 		children = append(children, buildPartyRoster(model.PartyRoster, metrics))
 	}
-	children = append(children, buildCurrentScreen(model, callbacks, metrics))
+	children = append(children, ebitenui.Div(ebitenui.Props{
+		ID: "current-screen-slot",
+		Style: ebitenui.Style{
+			Width:     ebitenui.Fill(),
+			Height:    ebitenui.Fill(),
+			Direction: ebitenui.Column,
+		},
+	}, buildCurrentScreen(model, callbacks, metrics)))
 
 	root := ebitenui.Div(ebitenui.Props{
 		ID: "dice-rogue-root",
@@ -156,7 +165,7 @@ func buildPartySelectionScreen(model PartySelectionModel, callbacks Callbacks, m
 			}
 		},
 	))
-	return panel("party-selection-screen", "파티 선택", children...)
+	return screenPanel("party-selection-screen", "파티 선택", children...)
 }
 
 func buildMapScreen(model MapModel, callbacks Callbacks, metrics layoutMetrics) *ebitenui.Node {
@@ -188,7 +197,7 @@ func buildMapScreen(model MapModel, callbacks Callbacks, metrics layoutMetrics) 
 		))
 	}
 	children = append(children, cardGrid("map-node-grid", metrics, gridColumnCount(metrics, 2), gridChildren...))
-	return panel("map-screen", "1막 지도", children...)
+	return screenPanel("map-screen", "1막 지도", children...)
 }
 
 func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMetrics) *ebitenui.Node {
@@ -342,12 +351,13 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 		ID: "combat-dashboard",
 		Style: ebitenui.Style{
 			Width:     ebitenui.Fill(),
+			Height:    ebitenui.Fill(),
 			Direction: ebitenui.Row,
 			Gap:       combatColGap,
 		},
 	}, combatRowChildren...))
 
-	return panel("combat-screen", fallback(model.EncounterName, "전투"), children...)
+	return screenPanel("combat-screen", fallback(model.EncounterName, "전투"), children...)
 }
 
 func buildOutcomeScreen(model OutcomeModel, callbacks Callbacks) *ebitenui.Node {
@@ -385,7 +395,7 @@ func buildOutcomeScreen(model OutcomeModel, callbacks Callbacks) *ebitenui.Node 
 			},
 		))
 	}
-	return panel("outcome-screen", fallback(model.Title, "결과"), children...)
+	return screenPanel("outcome-screen", fallback(model.Title, "결과"), children...)
 }
 
 func buildUnitList(units []PartyMember, prefix string) []*ebitenui.Node {
@@ -436,6 +446,14 @@ func buildUnitCards(units []PartyMember, prefix string) []*ebitenui.Node {
 }
 
 func panel(id string, title string, children ...*ebitenui.Node) *ebitenui.Node {
+	return panelWithHeight(id, title, ebitenui.Auto(), children...)
+}
+
+func screenPanel(id string, title string, children ...*ebitenui.Node) *ebitenui.Node {
+	return panelWithHeight(id, title, ebitenui.Fill(), children...)
+}
+
+func panelWithHeight(id string, title string, height ebitenui.Length, children ...*ebitenui.Node) *ebitenui.Node {
 	content := []*ebitenui.Node{
 		ebitenui.Text(title, ebitenui.Props{
 			ID:    id + "-title",
@@ -447,6 +465,7 @@ func panel(id string, title string, children ...*ebitenui.Node) *ebitenui.Node {
 		ID: id,
 		Style: ebitenui.Style{
 			Width:           ebitenui.Fill(),
+			Height:          height,
 			Direction:       ebitenui.Column,
 			Padding:         ebitenui.All(panelPadding),
 			Gap:             panelGap,
@@ -589,6 +608,7 @@ func fixedWidthColumn(id string, width float64, children ...*ebitenui.Node) *ebi
 		ID: id,
 		Style: ebitenui.Style{
 			Width:     ebitenui.Px(width),
+			Height:    ebitenui.Fill(),
 			Direction: ebitenui.Column,
 			Gap:       combatColGap,
 		},
@@ -625,10 +645,10 @@ func resolveLayoutMetrics(model Model) layoutMetrics {
 	width := model.ViewportWidth
 	height := model.ViewportHeight
 	if width <= 0 {
-		width = 1280
+		width = defaultViewportWidth
 	}
 	if height <= 0 {
-		height = 720
+		height = defaultViewportHeight
 	}
 	return layoutMetrics{
 		viewportWidth:  width,
@@ -697,6 +717,10 @@ func cardGridWithWidth(id string, width float64, columns int, children ...*ebite
 
 func wrapCards(id string, width float64, children ...*ebitenui.Node) []*ebitenui.Node {
 	wrapped := make([]*ebitenui.Node, 0, len(children))
+	safeWidth := width
+	if safeWidth > minTileWidth {
+		safeWidth -= 1
+	}
 	for index, child := range children {
 		if child == nil {
 			continue
@@ -704,7 +728,7 @@ func wrapCards(id string, width float64, children ...*ebitenui.Node) []*ebitenui
 		wrapped = append(wrapped, ebitenui.Div(ebitenui.Props{
 			ID: fmt.Sprintf("%s-wrap-%d", id, index),
 			Style: ebitenui.Style{
-				Width:     ebitenui.Px(maxFloat(width, minTileWidth)),
+				Width:     ebitenui.Px(maxFloat(safeWidth, minTileWidth)),
 				Direction: ebitenui.Column,
 			},
 		}, child))

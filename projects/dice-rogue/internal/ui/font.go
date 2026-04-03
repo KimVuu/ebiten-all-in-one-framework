@@ -9,7 +9,7 @@ import (
 	"golang.org/x/image/font/opentype"
 )
 
-const defaultTextFontSize = 13
+const defaultTextFontSize = 16
 
 func ApplyTextFace() error {
 	face, err := LoadTextFace()
