@@ -39,6 +39,15 @@ type layoutMetrics struct {
 	contentWidth   float64
 }
 
+type buttonTrigger int
+
+const (
+	buttonTriggerClick buttonTrigger = iota
+	buttonTriggerPointerDown
+	buttonTriggerPointerHold
+	buttonTriggerPointerUp
+)
+
 func BuildDOM(model Model, callbacks Callbacks) *ebitenui.DOM {
 	metrics := resolveLayoutMetrics(model)
 	children := []*ebitenui.Node{
@@ -143,6 +152,7 @@ func buildPartySelectionScreen(model PartySelectionModel, callbacks Callbacks, m
 			candidate.DiceSummary,
 			candidate.Selected,
 			false,
+			buttonTriggerClick,
 			func(id string) func() {
 				return func() {
 					if callbacks.OnToggleParty != nil {
@@ -159,6 +169,7 @@ func buildPartySelectionScreen(model PartySelectionModel, callbacks Callbacks, m
 		"선택한 파티로 1막 지도에 진입합니다.",
 		false,
 		!model.CanStart,
+		buttonTriggerClick,
 		func() {
 			if callbacks.OnStartRun != nil {
 				callbacks.OnStartRun()
@@ -187,6 +198,7 @@ func buildMapScreen(model MapModel, callbacks Callbacks, metrics layoutMetrics) 
 			node.Detail,
 			false,
 			false,
+			buttonTriggerClick,
 			func(id string) func() {
 				return func() {
 					if callbacks.OnSelectMapNode != nil {
@@ -230,7 +242,7 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	}
 
 	availableChildren := make([]*ebitenui.Node, 0, len(model.AvailableDice))
-	visibleDice, extraDice := limitDieViews(model.AvailableDice, 4)
+	visibleDice, extraDice := limitDieViews(model.AvailableDice, 5)
 	for _, die := range visibleDice {
 		detail := die.Detail
 		if die.Forced {
@@ -240,6 +252,7 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 			fmt.Sprintf("available-die-%s", die.ID),
 			die.Label,
 			detail,
+			buttonTriggerClick,
 			func(id string) func() {
 				return func() {
 					if callbacks.OnSelectDie != nil {
@@ -258,30 +271,30 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 		))
 	}
 
-	selectedChildren := make([]*ebitenui.Node, 0, len(model.SelectedDice))
+	usedChildren := make([]*ebitenui.Node, 0, len(model.SelectedDice))
 	for _, die := range model.SelectedDice {
-		text := die.Label
+		detail := die.Detail + " / 선택됨"
 		if die.Forced {
-			text += " / 강제 선택"
+			detail = die.Detail + " / 강제 선택"
 		}
-		selectedChildren = append(selectedChildren, infoCard(
-			fmt.Sprintf("selected-die-%s", die.ID),
-			text,
-			die.Detail,
+		usedChildren = append(usedChildren, infoCard(
+			fmt.Sprintf("used-die-%s", die.ID),
+			die.Label,
+			detail,
 			textMuted,
 		))
 	}
-	if len(selectedChildren) == 0 {
-		selectedChildren = append(selectedChildren, infoCard(
-			"selected-dice-empty",
-			"주사위 선택",
-			"턴을 진행하려면 주사위 3개를 선택하세요.",
+	if len(usedChildren) == 0 {
+		usedChildren = append(usedChildren, infoCard(
+			"used-dice-empty",
+			"사용한 주사위 없음",
+			"주사위를 고르면 이 칸에 표시됩니다.",
 			textMuted,
 		))
 	}
 
 	logChildren := make([]*ebitenui.Node, 0, len(model.Logs))
-	visibleLogs, extraLogs := limitStrings(model.Logs, 4)
+	visibleLogs, extraLogs := limitStrings(model.Logs, 8)
 	if len(visibleLogs) == 0 {
 		logChildren = append(logChildren, infoCard(
 			"combat-log-empty",
@@ -300,50 +313,62 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 		}
 	}
 	combatColumns := combatColumnCount(metrics)
-	columnWidth := combatColumnWidth(metrics, combatColumns)
+	columnWidths := combatColumnWidths(metrics, combatColumns)
+	leftWidth := columnWidths[0]
+	centerWidth := columnWidths[minInt(len(columnWidths)-1, 1)]
+	rightWidth := columnWidths[minInt(len(columnWidths)-1, 2)]
 
-	leftColumn := fixedWidthColumn("combat-left-column", columnWidth,
+	leftColumn := fixedWidthColumn("combat-left-column", leftWidth,
 		panel("combat-party-panel", "파티", buildUnitCards(model.Party, "party-card")...),
-		panel("selected-dice-panel", "선택된 주사위", cardGridWithWidth("selected-dice-grid", columnWidth, 1, selectedChildren...)...),
+		panelWithExtraHeight("available-dice-panel", "사용 가능 주사위", ebitenui.Fill(),
+			cardGridWithWidth("available-dice-grid", leftWidth, 1, availableChildren...),
+			extraDiceSummary(extraDice),
+		),
+		panel("used-dice-panel", "사용한 주사위", cardGridWithWidth("used-dice-grid", leftWidth, 1, usedChildren...)...),
+	)
+
+	centerColumn := fixedWidthColumn("combat-center-column", centerWidth,
+		panelWithExtraHeight("combat-log-panel", "전투 기록", ebitenui.Fill(),
+			cardGridWithWidth("combat-log-grid", centerWidth, 1, logChildren...),
+			extraLogSummary(extraLogs),
+		),
+	)
+	rightChildren := []*ebitenui.Node{
+		panel("combat-enemy-panel", "적", buildUnitCards(model.Enemies, "enemy-card")...),
+		panelWithHeight("revealed-patterns-panel", "공개된 패턴", ebitenui.Fill(), cardGridWithWidth("revealed-pattern-grid", rightWidth, 1, revealChildren...)...),
 		button(
 			"resolve-turn-button",
 			"턴 진행",
 			"선택한 주사위 3개를 처리한 뒤 적이 행동합니다.",
 			false,
 			!model.CanResolve,
+			buttonTriggerClick,
 			func() {
 				if callbacks.OnResolveTurn != nil {
 					callbacks.OnResolveTurn()
 				}
 			},
 		),
-	)
-
-	centerChildren := []*ebitenui.Node{
-		panel("combat-enemy-panel", "적", buildUnitCards(model.Enemies, "enemy-card")...),
-		panel("revealed-patterns-panel", "공개된 패턴", cardGridWithWidth("revealed-pattern-grid", columnWidth, 1, revealChildren...)...),
 	}
-	rightChildren := []*ebitenui.Node{
-		panelWithExtra("available-dice-panel", "사용 가능 주사위",
-			cardGridWithWidth("available-dice-grid", columnWidth, 2, availableChildren...),
-			extraDiceSummary(extraDice),
-		),
-		panelWithExtra("combat-log-panel", "전투 기록",
-			cardGridWithWidth("combat-log-grid", columnWidth, 1, logChildren...),
-			extraLogSummary(extraLogs),
-		),
-	}
+	rightColumn := fixedWidthColumn("combat-right-column", rightWidth, rightChildren...)
 
 	combatRowChildren := []*ebitenui.Node{leftColumn}
 	if combatColumns >= 3 {
-		combatRowChildren = append(combatRowChildren, fixedWidthColumn("combat-center-column", columnWidth, centerChildren...))
-		combatRowChildren = append(combatRowChildren, fixedWidthColumn("combat-right-column", columnWidth, rightChildren...))
+		combatRowChildren = append(combatRowChildren, centerColumn, rightColumn)
 	} else if combatColumns == 2 {
-		secondColumnChildren := append([]*ebitenui.Node{}, centerChildren...)
+		secondColumnChildren := []*ebitenui.Node{
+			panelWithExtraHeight("combat-log-panel", "전투 기록", ebitenui.Fill(),
+				cardGridWithWidth("combat-log-grid", rightWidth, 1, logChildren...),
+				extraLogSummary(extraLogs),
+			),
+		}
 		secondColumnChildren = append(secondColumnChildren, rightChildren...)
-		combatRowChildren = append(combatRowChildren, fixedWidthColumn("combat-right-column", columnWidth, secondColumnChildren...))
+		combatRowChildren = append(combatRowChildren, fixedWidthColumn("combat-right-column", rightWidth, secondColumnChildren...))
 	} else {
-		leftColumn.Children = append(leftColumn.Children, centerChildren...)
+		leftColumn.Children = append(leftColumn.Children, panelWithExtraHeight("combat-log-panel", "전투 기록", ebitenui.Fill(),
+			cardGridWithWidth("combat-log-grid", leftWidth, 1, logChildren...),
+			extraLogSummary(extraLogs),
+		))
 		leftColumn.Children = append(leftColumn.Children, rightChildren...)
 	}
 
@@ -374,6 +399,7 @@ func buildOutcomeScreen(model OutcomeModel, callbacks Callbacks) *ebitenui.Node 
 			"1막 지도로 돌아갑니다.",
 			false,
 			false,
+			buttonTriggerClick,
 			func() {
 				if callbacks.OnContinue != nil {
 					callbacks.OnContinue()
@@ -388,6 +414,7 @@ func buildOutcomeScreen(model OutcomeModel, callbacks Callbacks) *ebitenui.Node 
 			"파티 선택부터 새 런을 시작합니다.",
 			false,
 			false,
+			buttonTriggerClick,
 			func() {
 				if callbacks.OnRestart != nil {
 					callbacks.OnRestart()
@@ -477,14 +504,18 @@ func panelWithHeight(id string, title string, height ebitenui.Length, children .
 }
 
 func panelWithExtra(id string, title string, main []*ebitenui.Node, extra *ebitenui.Node) *ebitenui.Node {
+	return panelWithExtraHeight(id, title, ebitenui.Auto(), main, extra)
+}
+
+func panelWithExtraHeight(id string, title string, height ebitenui.Length, main []*ebitenui.Node, extra *ebitenui.Node) *ebitenui.Node {
 	children := append([]*ebitenui.Node{}, main...)
 	if extra != nil {
 		children = append(children, extra)
 	}
-	return panel(id, title, children...)
+	return panelWithHeight(id, title, height, children...)
 }
 
-func button(id string, label string, detail string, selected bool, disabled bool, onClick func()) *ebitenui.Node {
+func button(id string, label string, detail string, selected bool, disabled bool, trigger buttonTrigger, onAction func()) *ebitenui.Node {
 	background := panelBackground
 	if selected {
 		background = selectedColor
@@ -492,19 +523,13 @@ func button(id string, label string, detail string, selected bool, disabled bool
 	if disabled {
 		background = disabledColor
 	}
-	handlers := ebitenui.EventHandlers{}
-	if !disabled && onClick != nil {
-		handlers.OnClick = func(ctx ebitenui.EventContext) {
-			onClick()
-		}
-	}
 	return ebitenui.InteractiveButton(ebitenui.Props{
 		ID: id,
 		State: ebitenui.InteractionState{
 			Selected: selected,
 			Disabled: disabled,
 		},
-		Handlers: handlers,
+		Handlers: bindButtonHandlers(disabled, trigger, onAction),
 		Style: ebitenui.Style{
 			Width:           ebitenui.Fill(),
 			Direction:       ebitenui.Column,
@@ -526,16 +551,10 @@ func button(id string, label string, detail string, selected bool, disabled bool
 	)
 }
 
-func compactButton(id string, label string, detail string, onClick func()) *ebitenui.Node {
-	handlers := ebitenui.EventHandlers{}
-	if onClick != nil {
-		handlers.OnClick = func(ctx ebitenui.EventContext) {
-			onClick()
-		}
-	}
+func compactButton(id string, label string, detail string, trigger buttonTrigger, onAction func()) *ebitenui.Node {
 	return ebitenui.InteractiveButton(ebitenui.Props{
 		ID:       id,
-		Handlers: handlers,
+		Handlers: bindButtonHandlers(false, trigger, onAction),
 		Style: ebitenui.Style{
 			Width:           ebitenui.Fill(),
 			Direction:       ebitenui.Column,
@@ -555,6 +574,33 @@ func compactButton(id string, label string, detail string, onClick func()) *ebit
 			Style: ebitenui.Style{Width: ebitenui.Fill(), Color: textMuted},
 		}),
 	)
+}
+
+func bindButtonHandlers(disabled bool, trigger buttonTrigger, onAction func()) ebitenui.EventHandlers {
+	if disabled || onAction == nil {
+		return ebitenui.EventHandlers{}
+	}
+
+	handlers := ebitenui.EventHandlers{}
+	switch trigger {
+	case buttonTriggerPointerDown:
+		handlers.OnPointerDown = func(ctx ebitenui.EventContext) {
+			onAction()
+		}
+	case buttonTriggerPointerHold:
+		handlers.OnPointerHold = func(ctx ebitenui.EventContext) {
+			onAction()
+		}
+	case buttonTriggerPointerUp:
+		handlers.OnPointerUp = func(ctx ebitenui.EventContext) {
+			onAction()
+		}
+	default:
+		handlers.OnClick = func(ctx ebitenui.EventContext) {
+			onAction()
+		}
+	}
+	return handlers
 }
 
 func infoCard(id string, title string, detail string, textColor color.Color) *ebitenui.Node {
@@ -677,12 +723,23 @@ func combatColumnCount(metrics layoutMetrics) int {
 	return 1
 }
 
-func combatColumnWidth(metrics layoutMetrics, columns int) float64 {
+func combatColumnWidths(metrics layoutMetrics, columns int) []float64 {
+	if columns <= 1 {
+		return []float64{maxFloat(metrics.contentWidth-(panelPadding*2), minTileWidth)}
+	}
 	innerWidth := metrics.contentWidth - (panelPadding * 2) - (combatColGap * float64(columns-1))
 	if innerWidth < minTileWidth {
 		innerWidth = minTileWidth
 	}
-	return innerWidth / float64(columns)
+	if columns == 2 {
+		left := innerWidth * 0.36
+		right := innerWidth - left
+		return []float64{left, right}
+	}
+	left := innerWidth * 0.28
+	center := innerWidth * 0.44
+	right := innerWidth - left - center
+	return []float64{left, center, right}
 }
 
 func cardGrid(id string, metrics layoutMetrics, columns int, children ...*ebitenui.Node) *ebitenui.Node {
@@ -793,6 +850,13 @@ func colorForUnit(unit PartyMember) color.Color {
 
 func maxFloat(a, b float64) float64 {
 	if a > b {
+		return a
+	}
+	return b
+}
+
+func minInt(a, b int) int {
+	if a < b {
 		return a
 	}
 	return b
