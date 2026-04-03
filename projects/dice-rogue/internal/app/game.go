@@ -13,7 +13,6 @@ import (
 	ebitendebug "github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-debug"
 	ebitenui "github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui"
 	ebitenuidebug "github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui-debug"
-	renderer "github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui/renderer"
 	gameui "github.com/kimyechan/ebiten-aio-framework/projects/dice-rogue/internal/ui"
 )
 
@@ -26,7 +25,7 @@ type Game struct {
 	tick         int
 	debugEnabled bool
 
-	renderer       *renderer.Renderer
+	renderer       *gameui.Renderer
 	runtime        *ebitenui.Runtime
 	dom            *ebitenui.DOM
 	lastInput      ebitenui.InputSnapshot
@@ -46,11 +45,15 @@ func newGame(config GameConfig) *Game {
 	if seed == 0 {
 		seed = 1
 	}
+	textRenderer, err := gameui.NewRenderer()
+	if err != nil {
+		textRenderer = gameui.NewFallbackRenderer()
+	}
 	game := &Game{
 		width:          1280,
 		height:         720,
 		debugEnabled:   config.DebugEnabled,
-		renderer:       renderer.New(),
+		renderer:       textRenderer,
 		runtime:        ebitenui.NewRuntime(),
 		run:            newRunState(seed),
 		overlayEnabled: false,

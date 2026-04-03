@@ -7,6 +7,7 @@ require (
 	github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-debug v0.0.0
 	github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui v0.0.0
 	github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui-debug v0.0.0
+	golang.org/x/image v0.38.0
 )
 
 require (
@@ -14,9 +15,9 @@ require (
 	github.com/ebitengine/hideconsole v1.0.0 // indirect
 	github.com/ebitengine/purego v0.9.0 // indirect
 	github.com/jezek/xgb v1.1.1 // indirect
-	golang.org/x/image v0.38.0 // indirect
-	golang.org/x/sync v0.17.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
+	golang.org/x/text v0.35.0 // indirect
 )
 
 replace github.com/kimyechan/ebiten-aio-framework/libs/go/ebiten-ui => ../../libs/go/ebiten-ui
