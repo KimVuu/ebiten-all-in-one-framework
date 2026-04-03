@@ -307,11 +307,9 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 		))
 	} else {
 		for index, line := range model.Logs {
-			logChildren = append(logChildren, infoCard(
+			logChildren = append(logChildren, logEntryCard(
 				fmt.Sprintf("combat-log-%d", index),
-				fmt.Sprintf("기록 %d", index+1),
 				line,
-				textMuted,
 			))
 		}
 	}
@@ -658,6 +656,26 @@ func infoCard(id string, title string, detail string, textColor color.Color) *eb
 		ebitenui.TextBlock(detail, ebitenui.Props{
 			ID:    id + "-detail",
 			Style: ebitenui.Style{Width: ebitenui.Fill(), Color: textColor},
+		}),
+	)
+}
+
+func logEntryCard(id string, text string) *ebitenui.Node {
+	return ebitenui.Div(ebitenui.Props{
+		ID: id,
+		Style: ebitenui.Style{
+			Width:           ebitenui.Fill(),
+			Direction:       ebitenui.Column,
+			Padding:         ebitenui.All(6),
+			Gap:             4,
+			BackgroundColor: color.RGBA{R: 34, G: 41, B: 59, A: 255},
+			BorderColor:     borderColor,
+			BorderWidth:     1,
+		},
+	},
+		ebitenui.TextBlock(text, ebitenui.Props{
+			ID:    id + "-text",
+			Style: ebitenui.Style{Width: ebitenui.Fill(), Color: textMuted},
 		}),
 	)
 }
