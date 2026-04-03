@@ -144,6 +144,8 @@ _ = layout
 
 페이지 전체 스크롤이 필요한 화면은 `PageLayout`로 고정 헤더와 `ScrollView` 본문을 함께 구성하고, 문서형 UI나 툴형 화면은 `PageRouter + PageScreen`으로 좌측 navigation과 우측 detail panel을 조립하는 방식을 기본값으로 둔다.
 
+`ScrollView`와 `ClipChildren` 제약을 가진 노드는 렌더 단계에서도 `ClipRect` 바깥 자식을 잘라서 그린다.
+
 레이아웃 계산 결과를 디버그하거나 AI가 검사할 때는 `ValidateLayout(layout, viewport, opts)`를 사용하면 된다. 반환값은 `LayoutIssue`와 `ConstraintPatch` 중심으로 구성되어 있어 절대좌표가 아니라 제약 수정 단위로 다룰 수 있다.
 
 ## Theme 사용

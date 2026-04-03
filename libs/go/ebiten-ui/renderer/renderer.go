@@ -27,19 +27,30 @@ func (r *Renderer) Draw(screen *ebiten.Image, dom *ebitenui.DOM, viewport ebiten
 		return nil
 	}
 
-	drawNode(screen, layout)
+	drawNode(screen, layout, screen.Bounds())
 	return layout
 }
 
-func drawNode(screen *ebiten.Image, layout *ebitenui.LayoutNode) {
+func drawNode(screen *ebiten.Image, layout *ebitenui.LayoutNode, clip image.Rectangle) {
 	if layout == nil || layout.Node == nil {
+		return
+	}
+
+	drawRect := imageRect(layout.Frame)
+	visibleRect, ok := intersectImageRect(clip, drawRect)
+	if !ok {
+		return
+	}
+
+	target := clippedImage(screen, visibleRect)
+	if target == nil {
 		return
 	}
 
 	style := layout.Node.Props.Style
 	if style.BackgroundColor != nil {
 		vector.DrawFilledRect(
-			screen,
+			target,
 			float32(layout.Frame.X),
 			float32(layout.Frame.Y),
 			float32(layout.Frame.Width),
@@ -51,7 +62,7 @@ func drawNode(screen *ebiten.Image, layout *ebitenui.LayoutNode) {
 
 	if style.BorderColor != nil && style.BorderWidth > 0 {
 		vector.StrokeRect(
-			screen,
+			target,
 			float32(layout.Frame.X),
 			float32(layout.Frame.Y),
 			float32(layout.Frame.Width),
@@ -62,22 +73,31 @@ func drawNode(screen *ebiten.Image, layout *ebitenui.LayoutNode) {
 		)
 	}
 
-	drawInteractionState(screen, layout)
+	drawInteractionState(target, layout)
 
 	switch layout.Node.Tag {
 	case ebitenui.TagText:
-		drawTextLines(screen, layout, []string{layout.Node.Text})
+		drawTextLines(target, layout, []string{layout.Node.Text})
 	case ebitenui.TagTextBlock:
-		drawTextLines(screen, layout, layout.TextLines)
+		drawTextLines(target, layout, layout.TextLines)
 	case ebitenui.TagImage:
-		drawImage(screen, layout)
+		drawImage(target, layout)
+	}
+
+	childClip := clip
+	if layout.ClipChildren {
+		nextClip, ok := intersectImageRect(clip, imageRect(layout.ClipRect))
+		if !ok {
+			return
+		}
+		childClip = nextClip
 	}
 
 	for _, child := range layout.Children {
-		if layout.ClipChildren && !intersects(layout.Frame, child.Frame) {
+		if !imageRectsIntersect(childClip, imageRect(child.Frame)) {
 			continue
 		}
-		drawNode(screen, child)
+		drawNode(screen, child, childClip)
 	}
 }
 
@@ -159,6 +179,38 @@ func drawInteractionState(screen *ebiten.Image, layout *ebitenui.LayoutNode) {
 
 func intersects(a, b ebitenui.Rect) bool {
 	return a.X < b.X+b.Width && a.X+a.Width > b.X && a.Y < b.Y+b.Height && a.Y+a.Height > b.Y
+}
+
+func imageRect(rect ebitenui.Rect) image.Rectangle {
+	return image.Rect(
+		int(rect.X),
+		int(rect.Y),
+		int(rect.X+rect.Width),
+		int(rect.Y+rect.Height),
+	)
+}
+
+func clippedImage(screen *ebiten.Image, clip image.Rectangle) *ebiten.Image {
+	if screen == nil || clip.Empty() {
+		return nil
+	}
+	sub, ok := screen.SubImage(clip).(*ebiten.Image)
+	if !ok {
+		return nil
+	}
+	return sub
+}
+
+func intersectImageRect(a, b image.Rectangle) (image.Rectangle, bool) {
+	intersected := a.Intersect(b)
+	if intersected.Empty() {
+		return image.Rectangle{}, false
+	}
+	return intersected, true
+}
+
+func imageRectsIntersect(a, b image.Rectangle) bool {
+	return !a.Intersect(b).Empty()
 }
 
 func fontWidth(face font.Face, value string) int {
