@@ -140,6 +140,88 @@ func TestGameDebugSurfaceAndScreenFlow(t *testing.T) {
 	}
 }
 
+func TestGameOnlyButtonsKeepHoverAndFocusState(t *testing.T) {
+	game := newGame(GameConfig{Seed: 7})
+	game.width = DefaultWindowWidth
+	game.height = DefaultWindowHeight
+
+	if err := game.step(ebitenui.InputSnapshot{}); err != nil {
+		t.Fatalf("initial step failed: %v", err)
+	}
+	clickAndStep(t, game, "party-option-human-warrior")
+	clickAndStep(t, game, "party-option-human-guard")
+	clickAndStep(t, game, "party-option-human-guide")
+	clickAndStep(t, game, "start-run-button")
+	clickAndStep(t, game, "map-node-normal-a")
+
+	layout := game.currentLayout()
+	scrollLayout, ok := layout.FindByID("available-dice-scroll")
+	if !ok {
+		t.Fatalf("expected available dice scroll layout")
+	}
+	firstWrap, ok := layout.FindByID("available-dice-grid-wrap-0")
+	if !ok {
+		t.Fatalf("expected first available die wrapper")
+	}
+	secondWrap, ok := layout.FindByID("available-dice-grid-wrap-1")
+	if !ok {
+		t.Fatalf("expected second available die wrapper")
+	}
+	gapY := firstWrap.Frame.Y + firstWrap.Frame.Height + ((secondWrap.Frame.Y - (firstWrap.Frame.Y + firstWrap.Frame.Height)) / 2)
+	gapX := scrollLayout.Frame.X + (scrollLayout.Frame.Width / 2)
+
+	if err := game.step(ebitenui.InputSnapshot{PointerX: gapX, PointerY: gapY}); err != nil {
+		t.Fatalf("hover gap step failed: %v", err)
+	}
+	scrollNode, ok := game.dom.FindByID("available-dice-scroll")
+	if !ok {
+		t.Fatalf("expected available dice scroll node")
+	}
+	if scrollNode.Props.State.Hovered || scrollNode.Props.State.Pressed || scrollNode.Props.State.Focused {
+		t.Fatalf("expected scroll background to stay visually inactive, got %#v", scrollNode.Props.State)
+	}
+
+	if err := game.step(ebitenui.InputSnapshot{PointerX: gapX, PointerY: gapY, PointerDown: true}); err != nil {
+		t.Fatalf("background press step failed: %v", err)
+	}
+	if err := game.step(ebitenui.InputSnapshot{PointerX: gapX, PointerY: gapY}); err != nil {
+		t.Fatalf("background release step failed: %v", err)
+	}
+	if got := game.runtime.FocusedID(); got != "" {
+		t.Fatalf("expected background click to leave no focus, got %q", got)
+	}
+
+	game.mu.RLock()
+	dieID := game.run.CurrentCombat.AvailableDice[0].ID
+	game.mu.RUnlock()
+
+	layout = game.currentLayout()
+	dieLayout, ok := layout.FindByID("available-die-" + dieID)
+	if !ok {
+		t.Fatalf("expected available die button layout")
+	}
+	dieX := dieLayout.Frame.X + (dieLayout.Frame.Width / 2)
+	dieY := dieLayout.Frame.Y + (dieLayout.Frame.Height / 2)
+
+	if err := game.step(ebitenui.InputSnapshot{PointerX: dieX, PointerY: dieY}); err != nil {
+		t.Fatalf("button hover step failed: %v", err)
+	}
+	dieNode, ok := game.dom.FindByID("available-die-" + dieID)
+	if !ok {
+		t.Fatalf("expected available die button node")
+	}
+	if !dieNode.Props.State.Hovered {
+		t.Fatalf("expected button hover state to remain active")
+	}
+	scrollNode, ok = game.dom.FindByID("available-dice-scroll")
+	if !ok {
+		t.Fatalf("expected available dice scroll node after button hover")
+	}
+	if scrollNode.Props.State.Hovered || scrollNode.Props.State.Pressed || scrollNode.Props.State.Focused {
+		t.Fatalf("expected scroll node to stay passive while button is hovered, got %#v", scrollNode.Props.State)
+	}
+}
+
 func clickAndStep(t *testing.T, game *Game, nodeID string) {
 	t.Helper()
 	result := game.debugBridgeLikeCommand("ui_click", map[string]any{"node_id": nodeID})

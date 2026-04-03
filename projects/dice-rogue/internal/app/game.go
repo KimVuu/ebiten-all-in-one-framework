@@ -115,6 +115,8 @@ func (game *Game) step(input ebitenui.InputSnapshot) error {
 
 	dom = gameui.BuildDOM(game.currentModelLocked(), game.callbacksLocked(), game.runtime)
 	game.runtime.Update(dom, viewport, stabilizeInput(input))
+	game.normalizeNonButtonFocus(dom)
+	clearPassiveInteractionStates(dom.Root)
 	game.dom = dom
 	game.lastInput = input
 	return nil
@@ -134,6 +136,8 @@ func (game *Game) Draw(screen *ebiten.Image) {
 		game.mu.RLock()
 		dom = gameui.BuildDOM(game.currentModelLocked(), game.callbacksLocked(), game.runtime)
 		game.mu.RUnlock()
+		game.normalizeNonButtonFocus(dom)
+		clearPassiveInteractionStates(dom.Root)
 	}
 
 	viewport := ebitenui.Viewport{
@@ -547,6 +551,37 @@ func (game *Game) resetCombatScrollPositions() {
 	game.runtime.SetNumberValue("available-dice-scroll-offset", 0)
 	game.runtime.SetNumberValue("used-dice-scroll-offset", 0)
 	game.runtime.SetNumberValue("combat-log-scroll-offset", 0)
+}
+
+func (game *Game) normalizeNonButtonFocus(dom *ebitenui.DOM) {
+	if game.runtime == nil || dom == nil {
+		return
+	}
+	focusedID := game.runtime.FocusedID()
+	if focusedID == "" {
+		return
+	}
+	node, ok := dom.FindByID(focusedID)
+	if ok && node != nil && node.Tag == ebitenui.TagButton {
+		return
+	}
+	game.runtime.ClearFocus(dom, ebitenui.InputSnapshot{})
+}
+
+func clearPassiveInteractionStates(node *ebitenui.Node) {
+	if node == nil {
+		return
+	}
+	if node.Tag != ebitenui.TagButton {
+		state := node.Props.State
+		state.Hovered = false
+		state.Pressed = false
+		state.Focused = false
+		node.Props.State = state
+	}
+	for _, child := range node.Children {
+		clearPassiveInteractionStates(child)
+	}
 }
 
 func (game *Game) collectInput() ebitenui.InputSnapshot {

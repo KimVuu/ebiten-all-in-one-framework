@@ -820,9 +820,8 @@ func persistentScrollView(id string, runtime *ebitenui.Runtime, children ...*ebi
 	}
 
 	return ebitenui.ScrollView(ebitenui.Props{
-		ID:        id,
-		Focusable: true,
-		Handlers:  handlers,
+		ID:       id,
+		Handlers: handlers,
 		Scroll: ebitenui.ScrollState{
 			OffsetY: offsetY,
 		},
