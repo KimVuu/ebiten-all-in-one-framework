@@ -448,11 +448,12 @@ func (g *game) collectInput() ebitenui.InputSnapshot {
 	textInput := ebiten.AppendInputChars(nil)
 
 	input := ebitenui.InputSnapshot{
-		PointerX:    float64(pointerX),
-		PointerY:    float64(pointerY),
-		PointerDown: ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft),
-		ScrollX:     scrollX,
-		ScrollY:     scrollY,
+		PointerX:     float64(pointerX),
+		PointerY:     float64(pointerY),
+		PointerDown:  ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft),
+		InputBlocked: !ebiten.IsFocused(),
+		ScrollX:      scrollX,
+		ScrollY:      scrollY,
 	}
 	if len(textInput) > 0 {
 		input.Text = string(textInput)

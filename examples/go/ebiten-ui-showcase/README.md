@@ -97,3 +97,5 @@ go test ./...
 - `ui_clear_input_queue`
 
 입력은 프레임 큐로 들어가며, 클릭/스크롤/텍스트/키 입력은 `node_id` 또는 좌표 기준으로 재현된다. 오버레이는 bounds, anchor/pivot, invalid state, clickable rect, focus/hover 상태를 표시한다. 기본값은 `off`이고, 필요할 때만 `set_ui_debug_overlay`로 켠다.
+
+호스트 입력은 윈도우가 unfocused 상태면 `InputBlocked`로 차단된다. 대신 MCP/debug queue 입력은 이 차단을 우회해서 계속 재현할 수 있다.

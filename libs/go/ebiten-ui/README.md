@@ -110,6 +110,7 @@ func drawUI(screenWidth, screenHeight float64) {
 
 - `Runtime`: hover, press, focus, click, text input, submit, scroll dispatch
 - `InputSnapshot`: 포인터 위치, 버튼 상태, 텍스트 입력, backspace, submit, scroll 입력, tab/escape/arrow/modifier 키 입력
+- `InputSnapshot.InputBlocked`: 앱이 unfocused 상태일 때 press/hold/click/keyboard/scroll 처리를 막는 입력 차단 플래그
 - `EventHandlers`: 노드 단위 이벤트 핸들러
 
 대표 흐름:
@@ -123,6 +124,7 @@ layout := runtime.Update(dom, ebitenui.Viewport{
 	PointerX:    mouseX,
 	PointerY:    mouseY,
 	PointerDown: mouseDown,
+	InputBlocked: appUnfocused,
 	Text:        typedText,
 	Backspace:   backspacePressed,
 	Submit:      submitPressed,
@@ -139,6 +141,8 @@ _ = layout
 - `OnPointerHold`: 누르고 있는 동안 지속 프레임마다
 - `OnPointerUp`: 손을 뗄 때 1회
 - `OnClick`: 같은 타깃에서 눌렀다가 뗐을 때 1회
+
+`InputBlocked`가 `true`면 런타임은 새 pointer/keyboard/scroll 액션을 처리하지 않고, 진행 중이던 press도 click 없이 취소한다.
 
 기본 런타임은 `Tab` 포커스 이동, `Escape` 포커스 해제, `Enter` 기반 focused button 활성화, arrow 기반 scroll dispatch까지 처리한다.
 

@@ -1,30 +1,31 @@
 package ebitenui
 
 type InputSnapshot struct {
-	PointerX    float64
-	PointerY    float64
-	PointerDown bool
-	ScrollX     float64
-	ScrollY     float64
-	Text        string
-	Backspace   bool
-	Delete      bool
-	Home        bool
-	End         bool
-	Submit      bool
-	Space       bool
-	SelectAll   bool
-	Shortcut    string
-	Tab         bool
-	Escape      bool
-	ArrowUp     bool
-	ArrowDown   bool
-	ArrowLeft   bool
-	ArrowRight  bool
-	Shift       bool
-	Control     bool
-	Alt         bool
-	Meta        bool
+	PointerX     float64
+	PointerY     float64
+	PointerDown  bool
+	InputBlocked bool
+	ScrollX      float64
+	ScrollY      float64
+	Text         string
+	Backspace    bool
+	Delete       bool
+	Home         bool
+	End          bool
+	Submit       bool
+	Space        bool
+	SelectAll    bool
+	Shortcut     string
+	Tab          bool
+	Escape       bool
+	ArrowUp      bool
+	ArrowDown    bool
+	ArrowLeft    bool
+	ArrowRight   bool
+	Shift        bool
+	Control      bool
+	Alt          bool
+	Meta         bool
 }
 
 type EventContext struct {
@@ -121,6 +122,13 @@ func (runtime *Runtime) Update(dom *DOM, viewport Viewport, input InputSnapshot)
 	runtime.viewport = viewport
 	runtime.layout = dom.Layout(viewport)
 	clearTransientStates(dom.Root)
+
+	if input.InputBlocked {
+		runtime.hoveredID = ""
+		runtime.pressedID = ""
+		runtime.prevInput = InputSnapshot{InputBlocked: true}
+		return runtime.layout
+	}
 
 	hovered := findInteractiveHit(runtime.layout, input.PointerX, input.PointerY)
 	hoveredID := ""

@@ -165,6 +165,102 @@ func TestRuntimeReleaseOutsideStillDispatchesPointerUpWithoutClick(t *testing.T)
 	}
 }
 
+func TestRuntimeBlockedInputSuppressesNewPress(t *testing.T) {
+	downs := 0
+	clicks := 0
+	dom := ebitenui.New(
+		ebitenui.InteractiveButton(ebitenui.Props{
+			ID: "blocked-button",
+			Style: ebitenui.Style{
+				Width:  ebitenui.Px(120),
+				Height: ebitenui.Px(40),
+			},
+			Handlers: ebitenui.EventHandlers{
+				OnPointerDown: func(ctx ebitenui.EventContext) {
+					downs++
+				},
+				OnClick: func(ctx ebitenui.EventContext) {
+					clicks++
+				},
+			},
+		}, ebitenui.Text("Blocked", ebitenui.Props{ID: "blocked-button-label"})),
+	)
+
+	runtime := ebitenui.NewRuntime()
+	viewport := ebitenui.Viewport{Width: 160, Height: 80}
+
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 20, PointerY: 20, PointerDown: true, InputBlocked: true})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 20, PointerY: 20, InputBlocked: true})
+
+	if downs != 0 {
+		t.Fatalf("expected no pointer down while input blocked, got %d", downs)
+	}
+	if clicks != 0 {
+		t.Fatalf("expected no click while input blocked, got %d", clicks)
+	}
+	if got := runtime.HoveredID(); got != "" {
+		t.Fatalf("expected no hovered id while input blocked, got %q", got)
+	}
+}
+
+func TestRuntimeBlockedInputCancelsHeldPressWithoutClick(t *testing.T) {
+	downs := 0
+	holds := 0
+	ups := 0
+	clicks := 0
+	dom := ebitenui.New(
+		ebitenui.InteractiveButton(ebitenui.Props{
+			ID: "focus-button",
+			Style: ebitenui.Style{
+				Width:  ebitenui.Px(120),
+				Height: ebitenui.Px(40),
+			},
+			Handlers: ebitenui.EventHandlers{
+				OnPointerDown: func(ctx ebitenui.EventContext) {
+					downs++
+				},
+				OnPointerHold: func(ctx ebitenui.EventContext) {
+					holds++
+				},
+				OnPointerUp: func(ctx ebitenui.EventContext) {
+					ups++
+				},
+				OnClick: func(ctx ebitenui.EventContext) {
+					clicks++
+				},
+			},
+		}, ebitenui.Text("Focus", ebitenui.Props{ID: "focus-button-label"})),
+	)
+
+	runtime := ebitenui.NewRuntime()
+	viewport := ebitenui.Viewport{Width: 160, Height: 80}
+
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 20, PointerY: 20})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 20, PointerY: 20, PointerDown: true})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 20, PointerY: 20, PointerDown: true, InputBlocked: true})
+	runtime.Update(dom, viewport, ebitenui.InputSnapshot{PointerX: 20, PointerY: 20})
+
+	if downs != 1 {
+		t.Fatalf("expected one initial pointer down, got %d", downs)
+	}
+	if holds != 0 {
+		t.Fatalf("expected blocked input to prevent hold dispatch, got %d", holds)
+	}
+	if ups != 0 {
+		t.Fatalf("expected blocked input to cancel without pointer up callback, got %d", ups)
+	}
+	if clicks != 0 {
+		t.Fatalf("expected blocked input to cancel click, got %d", clicks)
+	}
+	button, ok := dom.FindByID("focus-button")
+	if !ok {
+		t.Fatalf("expected button node")
+	}
+	if button.Props.State.Pressed {
+		t.Fatalf("expected blocked input to clear transient state, got %#v", button.Props.State)
+	}
+}
+
 func TestRuntimeCheckboxOnChangeUsesRuntimeValue(t *testing.T) {
 	var values []bool
 	dom := ebitenui.New(ebitenui.Checkbox(ebitenui.CheckboxConfig{

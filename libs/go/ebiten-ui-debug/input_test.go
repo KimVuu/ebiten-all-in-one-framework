@@ -134,3 +134,16 @@ func TestDebugLayoutReportFlagsInvalidGeometry(t *testing.T) {
 		t.Fatalf("expected overflow issue, got %#v", report.Issues)
 	}
 }
+
+func TestMergeDebugInputSnapshotClearsBlockedInput(t *testing.T) {
+	base := ebitenui.InputSnapshot{
+		InputBlocked: true,
+	}
+	merged := mergeDebugInputSnapshot(base, ebitenui.InputSnapshot{PointerX: 10, PointerY: 12}, debugFrameInputPointerMove)
+	if merged.InputBlocked {
+		t.Fatalf("expected debug input to unblock runtime input")
+	}
+	if merged.PointerX != 10 || merged.PointerY != 12 {
+		t.Fatalf("unexpected merged pointer coordinates: %#v", merged)
+	}
+}

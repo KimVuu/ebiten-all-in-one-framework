@@ -510,6 +510,7 @@ func focusedID(runtime *ebitenui.Runtime) string {
 }
 
 func mergeDebugInputSnapshot(base, add ebitenui.InputSnapshot, kind debugFrameInputKind) ebitenui.InputSnapshot {
+	base.InputBlocked = false
 	if kind == debugFrameInputPointerMove || kind == debugFrameInputPointerDown || kind == debugFrameInputPointerUp || kind == debugFrameInputScroll {
 		base.PointerX = add.PointerX
 		base.PointerY = add.PointerY
