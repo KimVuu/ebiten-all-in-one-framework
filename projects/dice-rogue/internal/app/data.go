@@ -42,7 +42,6 @@ var characterCatalog = []UnitState{
 			valueDie("human-guard-defense-1", "human-guard", "방어 주사위 1", DieKindDefense, []int{1, 2, 2, 3, 3, 4}),
 			valueDie("human-guard-defense-2", "human-guard", "방어 주사위 2", DieKindDefense, []int{1, 2, 2, 3, 3, 4}),
 			valueDie("human-guard-defense-3", "human-guard", "방어 주사위 3", DieKindDefense, []int{1, 2, 2, 3, 3, 4}),
-			valueDie("human-guard-defense-4", "human-guard", "방어 주사위 4", DieKindDefense, []int{1, 2, 2, 3, 3, 4}),
 			skillDie("human-guard-tank-1", "human-guard", "탱커의 주사위 1", effectTankGuard,
 				face(FaceKindSuccess, "성공", 0),
 				face(FaceKindSuccess, "성공", 0),

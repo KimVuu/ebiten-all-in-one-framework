@@ -350,9 +350,6 @@ func (combat *CombatState) pushLog(line string) {
 		return
 	}
 	combat.Logs = append(combat.Logs, line)
-	if len(combat.Logs) > 12 {
-		combat.Logs = combat.Logs[len(combat.Logs)-12:]
-	}
 }
 
 func (combat *CombatState) addEnemyStatus(status StatusEffect) {

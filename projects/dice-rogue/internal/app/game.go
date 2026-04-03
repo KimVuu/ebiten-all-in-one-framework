@@ -108,12 +108,12 @@ func (game *Game) step(input ebitenui.InputSnapshot) error {
 	game.frame++
 	viewport := game.currentViewportLocked()
 
-	dom := gameui.BuildDOM(game.currentModelLocked(), game.callbacksLocked())
+	dom := gameui.BuildDOM(game.currentModelLocked(), game.callbacksLocked(), game.runtime)
 	layout := dom.Layout(viewport)
 	input = game.uiDebug.ApplyQueuedInput(game.frame, dom, game.runtime, layout, input)
 	game.runtime.Update(dom, viewport, input)
 
-	dom = gameui.BuildDOM(game.currentModelLocked(), game.callbacksLocked())
+	dom = gameui.BuildDOM(game.currentModelLocked(), game.callbacksLocked(), game.runtime)
 	game.runtime.Update(dom, viewport, stabilizeInput(input))
 	game.dom = dom
 	game.lastInput = input
@@ -132,7 +132,7 @@ func (game *Game) Draw(screen *ebiten.Image) {
 
 	if dom == nil {
 		game.mu.RLock()
-		dom = gameui.BuildDOM(game.currentModelLocked(), game.callbacksLocked())
+		dom = gameui.BuildDOM(game.currentModelLocked(), game.callbacksLocked(), game.runtime)
 		game.mu.RUnlock()
 	}
 
@@ -264,9 +264,6 @@ func (game *Game) currentCombatModelLocked() gameui.CombatModel {
 		patterns = append(patterns, fmt.Sprintf("%s 다음 패턴: %s", ownerLabel(enemyID), label))
 	}
 	logs := append([]string(nil), combat.Logs...)
-	if len(logs) > 6 {
-		logs = logs[len(logs)-6:]
-	}
 	return gameui.CombatModel{
 		EncounterName:    combat.EncounterName,
 		Turn:             maxInt(combat.Turn, 1),
@@ -308,9 +305,11 @@ func (game *Game) callbacksLocked() gameui.Callbacks {
 		},
 		OnStartRun: func() {
 			game.run.startRun()
+			game.resetCombatScrollPositions()
 		},
 		OnSelectMapNode: func(id string) {
 			_ = game.run.selectMapNode(id)
+			game.resetCombatScrollPositions()
 		},
 		OnSelectDie: func(id string) {
 			if game.run.CurrentCombat != nil {
@@ -319,12 +318,14 @@ func (game *Game) callbacksLocked() gameui.Callbacks {
 		},
 		OnResolveTurn: func() {
 			game.run.resolveCombatTurn()
+			game.resetCombatScrollPositions()
 		},
 		OnContinue: func() {
 			game.run.continueAfterOutcome()
 		},
 		OnRestart: func() {
 			game.run.restart()
+			game.resetCombatScrollPositions()
 		},
 	}
 }
@@ -522,7 +523,7 @@ func (game *Game) currentLayout() *ebitenui.LayoutNode {
 		return runtimeLayout
 	}
 	if dom == nil {
-		dom = gameui.BuildDOM(model, callbacks)
+		dom = gameui.BuildDOM(model, callbacks, game.runtime)
 	}
 	return dom.Layout(viewport)
 }
@@ -537,6 +538,15 @@ func (game *Game) currentScreen() ScreenID {
 	game.mu.RLock()
 	defer game.mu.RUnlock()
 	return game.run.Screen
+}
+
+func (game *Game) resetCombatScrollPositions() {
+	if game.runtime == nil {
+		return
+	}
+	game.runtime.SetNumberValue("available-dice-scroll-offset", 0)
+	game.runtime.SetNumberValue("used-dice-scroll-offset", 0)
+	game.runtime.SetNumberValue("combat-log-scroll-offset", 0)
 }
 
 func (game *Game) collectInput() ebitenui.InputSnapshot {

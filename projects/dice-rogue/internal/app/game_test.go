@@ -108,8 +108,17 @@ func TestGameDebugSurfaceAndScreenFlow(t *testing.T) {
 	if _, ok := game.dom.FindByID("combat-log-grid"); !ok {
 		t.Fatalf("expected combat log grid")
 	}
-	if containsTag(game.dom.Root, ebitenui.TagScrollView) {
-		t.Fatalf("expected no scroll view nodes on combat screen")
+	for _, id := range []string{
+		"available-dice-scroll",
+		"used-dice-scroll",
+		"combat-log-scroll",
+	} {
+		if _, ok := game.dom.FindByID(id); !ok {
+			t.Fatalf("expected combat scroll node %q", id)
+		}
+	}
+	if !containsTag(game.dom.Root, ebitenui.TagScrollView) {
+		t.Fatalf("expected scroll view nodes on combat screen")
 	}
 	assertNoLayoutOverflow(t, game)
 
@@ -168,20 +177,26 @@ func assertNoLayoutOverflow(t *testing.T, game *Game) {
 	}
 	report := ebitenui.ValidateLayout(layout, game.currentViewport(), ebitenui.ValidationOptions{})
 	for _, issue := range report.Issues {
+		if isWithinScrollView(layout, issue.NodeID) {
+			continue
+		}
 		switch issue.Code {
 		case ebitenui.IssueOutOfViewport, ebitenui.IssueOutOfParent, ebitenui.IssueTextOverflow:
 			t.Fatalf("unexpected layout issue: node=%s code=%s message=%s", issue.NodeID, issue.Code, issue.Message)
 		}
 	}
-	assertNodeOverflowFree(t, layout)
+	assertNodeOverflowFree(t, layout, false)
 }
 
-func assertNodeOverflowFree(t *testing.T, layout *ebitenui.LayoutNode) {
+func assertNodeOverflowFree(t *testing.T, layout *ebitenui.LayoutNode, withinScrollView bool) {
 	t.Helper()
 	if layout == nil {
 		return
 	}
-	if layout.Overflow.Any {
+	if layout.Node != nil && layout.Node.Tag == ebitenui.TagScrollView {
+		withinScrollView = true
+	}
+	if layout.Overflow.Any && !withinScrollView {
 		nodeID := ""
 		if layout.Node != nil {
 			nodeID = layout.Node.Props.ID
@@ -189,6 +204,30 @@ func assertNodeOverflowFree(t *testing.T, layout *ebitenui.LayoutNode) {
 		t.Fatalf("unexpected overflow on node %q: %#v", nodeID, layout.Overflow)
 	}
 	for _, child := range layout.Children {
-		assertNodeOverflowFree(t, child)
+		assertNodeOverflowFree(t, child, withinScrollView)
 	}
+}
+
+func isWithinScrollView(layout *ebitenui.LayoutNode, nodeID string) bool {
+	if layout == nil || nodeID == "" {
+		return false
+	}
+	node, ok := layout.FindByID(nodeID)
+	if !ok {
+		return false
+	}
+	for node != nil {
+		if node.Node != nil && node.Node.Tag == ebitenui.TagScrollView {
+			return true
+		}
+		if node.ParentID == "" {
+			break
+		}
+		parent, ok := layout.FindByID(node.ParentID)
+		if !ok {
+			break
+		}
+		node = parent
+	}
+	return false
 }

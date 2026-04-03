@@ -28,6 +28,7 @@ const (
 	panelGap              = 8.0
 	gridGap               = 10.0
 	combatColGap          = 12.0
+	defaultScrollStep     = 48.0
 	minTileWidth          = 210.0
 	defaultViewportWidth  = 1600.0
 	defaultViewportHeight = 960.0
@@ -48,7 +49,7 @@ const (
 	buttonTriggerPointerUp
 )
 
-func BuildDOM(model Model, callbacks Callbacks) *ebitenui.DOM {
+func BuildDOM(model Model, callbacks Callbacks, runtime *ebitenui.Runtime) *ebitenui.DOM {
 	metrics := resolveLayoutMetrics(model)
 	children := []*ebitenui.Node{
 		buildHeader(model),
@@ -63,7 +64,7 @@ func BuildDOM(model Model, callbacks Callbacks) *ebitenui.DOM {
 			Height:    ebitenui.Fill(),
 			Direction: ebitenui.Column,
 		},
-	}, buildCurrentScreen(model, callbacks, metrics)))
+	}, buildCurrentScreen(model, callbacks, metrics, runtime)))
 
 	root := ebitenui.Div(ebitenui.Props{
 		ID: "dice-rogue-root",
@@ -123,12 +124,12 @@ func buildPartyRoster(roster []PartyMember, metrics layoutMetrics) *ebitenui.Nod
 	return panel("party-roster-panel", "파티 현황", children...)
 }
 
-func buildCurrentScreen(model Model, callbacks Callbacks, metrics layoutMetrics) *ebitenui.Node {
+func buildCurrentScreen(model Model, callbacks Callbacks, metrics layoutMetrics, runtime *ebitenui.Runtime) *ebitenui.Node {
 	switch model.CurrentScreen {
 	case "map":
 		return buildMapScreen(model.Map, callbacks, metrics)
 	case "combat":
-		return buildCombatScreen(model.Combat, callbacks, metrics)
+		return buildCombatScreen(model.Combat, callbacks, metrics, runtime)
 	case "outcome":
 		return buildOutcomeScreen(model.Outcome, callbacks)
 	default:
@@ -212,7 +213,7 @@ func buildMapScreen(model MapModel, callbacks Callbacks, metrics layoutMetrics) 
 	return screenPanel("map-screen", "1막 지도", children...)
 }
 
-func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMetrics) *ebitenui.Node {
+func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMetrics, runtime *ebitenui.Runtime) *ebitenui.Node {
 	children := []*ebitenui.Node{
 		ebitenui.Text(fmt.Sprintf("%d턴", maxOne(model.Turn)), ebitenui.Props{
 			ID:    "combat-turn",
@@ -242,8 +243,7 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	}
 
 	availableChildren := make([]*ebitenui.Node, 0, len(model.AvailableDice))
-	visibleDice, extraDice := limitDieViews(model.AvailableDice, 5)
-	for _, die := range visibleDice {
+	for _, die := range model.AvailableDice {
 		detail := die.Detail
 		if die.Forced {
 			detail += " / 강제 선택"
@@ -294,8 +294,7 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	}
 
 	logChildren := make([]*ebitenui.Node, 0, len(model.Logs))
-	visibleLogs, extraLogs := limitStrings(model.Logs, 8)
-	if len(visibleLogs) == 0 {
+	if len(model.Logs) == 0 {
 		logChildren = append(logChildren, infoCard(
 			"combat-log-empty",
 			"전투 기록 없음",
@@ -303,7 +302,7 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 			textMuted,
 		))
 	} else {
-		for index, line := range visibleLogs {
+		for index, line := range model.Logs {
 			logChildren = append(logChildren, infoCard(
 				fmt.Sprintf("combat-log-%d", index),
 				fmt.Sprintf("기록 %d", index+1),
@@ -318,20 +317,46 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 	centerWidth := columnWidths[minInt(len(columnWidths)-1, 1)]
 	rightWidth := columnWidths[minInt(len(columnWidths)-1, 2)]
 
+	buildAvailableDicePanel := func(panelWidth float64) *ebitenui.Node {
+		return panelWithHeight("available-dice-panel", "사용 가능 주사위", ebitenui.Fill(),
+			persistentScrollView("available-dice-scroll", runtime,
+				cardColumnWithWidth("available-dice-grid", panelWidth, availableChildren...),
+			),
+		)
+	}
+	buildUsedDicePanel := func(panelWidth float64) *ebitenui.Node {
+		return panelWithHeight("used-dice-panel", "사용한 주사위", ebitenui.Fill(),
+			persistentScrollView("used-dice-scroll", runtime,
+				cardColumnWithWidth("used-dice-grid", panelWidth, usedChildren...),
+			),
+		)
+	}
+	buildCombatLogPanel := func(panelWidth float64) *ebitenui.Node {
+		return panelWithHeight("combat-log-panel", "전투 기록", ebitenui.Fill(),
+			persistentScrollView("combat-log-scroll", runtime,
+				cardColumnWithWidth("combat-log-grid", panelWidth, logChildren...),
+			),
+		)
+	}
+
 	leftColumn := fixedWidthColumn("combat-left-column", leftWidth,
 		panel("combat-party-panel", "파티", buildUnitCards(model.Party, "party-card")...),
-		panelWithExtraHeight("available-dice-panel", "사용 가능 주사위", ebitenui.Fill(),
-			cardGridWithWidth("available-dice-grid", leftWidth, 1, availableChildren...),
-			extraDiceSummary(extraDice),
+		ebitenui.Div(ebitenui.Props{
+			ID: "combat-dice-stack",
+			Style: ebitenui.Style{
+				Width:     ebitenui.Fill(),
+				Height:    ebitenui.Fill(),
+				Direction: ebitenui.Column,
+				Gap:       combatColGap,
+			},
+		},
+			buildAvailableDicePanel(leftWidth),
+			buildUsedDicePanel(leftWidth),
 		),
-		panel("used-dice-panel", "사용한 주사위", cardGridWithWidth("used-dice-grid", leftWidth, 1, usedChildren...)...),
 	)
 
 	centerColumn := fixedWidthColumn("combat-center-column", centerWidth,
-		panelWithExtraHeight("combat-log-panel", "전투 기록", ebitenui.Fill(),
-			cardGridWithWidth("combat-log-grid", centerWidth, 1, logChildren...),
-			extraLogSummary(extraLogs),
-		),
+		buildCombatLogPanel(centerWidth),
 	)
 	rightChildren := []*ebitenui.Node{
 		panel("combat-enemy-panel", "적", buildUnitCards(model.Enemies, "enemy-card")...),
@@ -357,18 +382,12 @@ func buildCombatScreen(model CombatModel, callbacks Callbacks, metrics layoutMet
 		combatRowChildren = append(combatRowChildren, centerColumn, rightColumn)
 	} else if combatColumns == 2 {
 		secondColumnChildren := []*ebitenui.Node{
-			panelWithExtraHeight("combat-log-panel", "전투 기록", ebitenui.Fill(),
-				cardGridWithWidth("combat-log-grid", rightWidth, 1, logChildren...),
-				extraLogSummary(extraLogs),
-			),
+			buildCombatLogPanel(rightWidth),
 		}
 		secondColumnChildren = append(secondColumnChildren, rightChildren...)
 		combatRowChildren = append(combatRowChildren, fixedWidthColumn("combat-right-column", rightWidth, secondColumnChildren...))
 	} else {
-		leftColumn.Children = append(leftColumn.Children, panelWithExtraHeight("combat-log-panel", "전투 기록", ebitenui.Fill(),
-			cardGridWithWidth("combat-log-grid", leftWidth, 1, logChildren...),
-			extraLogSummary(extraLogs),
-		))
+		leftColumn.Children = append(leftColumn.Children, buildCombatLogPanel(leftWidth))
 		leftColumn.Children = append(leftColumn.Children, rightChildren...)
 	}
 
@@ -661,32 +680,6 @@ func fixedWidthColumn(id string, width float64, children ...*ebitenui.Node) *ebi
 	}, children...)
 }
 
-func extraDiceSummary(extra int) *ebitenui.Node {
-	if extra <= 0 {
-		return nil
-	}
-	return ebitenui.TextBlock(
-		fmt.Sprintf("아직 %d개의 주사위가 풀에 남아 있습니다.", extra),
-		ebitenui.Props{
-			ID:    "available-dice-more",
-			Style: ebitenui.Style{Color: textMuted},
-		},
-	)
-}
-
-func extraLogSummary(extra int) *ebitenui.Node {
-	if extra <= 0 {
-		return nil
-	}
-	return ebitenui.TextBlock(
-		fmt.Sprintf("이전 전투 기록 %d줄이 숨겨져 있습니다.", extra),
-		ebitenui.Props{
-			ID:    "combat-log-more",
-			Style: ebitenui.Style{Color: textMuted},
-		},
-	)
-}
-
 func resolveLayoutMetrics(model Model) layoutMetrics {
 	width := model.ViewportWidth
 	height := model.ViewportHeight
@@ -772,6 +765,17 @@ func cardGridWithWidth(id string, width float64, columns int, children ...*ebite
 	}
 }
 
+func cardColumnWithWidth(id string, width float64, children ...*ebitenui.Node) *ebitenui.Node {
+	return ebitenui.Div(ebitenui.Props{
+		ID: id,
+		Style: ebitenui.Style{
+			Width:     ebitenui.Fill(),
+			Direction: ebitenui.Column,
+			Gap:       gridGap,
+		},
+	}, wrapCards(id, maxFloat(width-(panelPadding*2), minTileWidth), children...)...)
+}
+
 func wrapCards(id string, width float64, children ...*ebitenui.Node) []*ebitenui.Node {
 	wrapped := make([]*ebitenui.Node, 0, len(children))
 	safeWidth := width
@@ -793,18 +797,41 @@ func wrapCards(id string, width float64, children ...*ebitenui.Node) []*ebitenui
 	return wrapped
 }
 
-func limitDieViews(dice []DieView, limit int) ([]DieView, int) {
-	if len(dice) <= limit {
-		return dice, 0
+func persistentScrollView(id string, runtime *ebitenui.Runtime, children ...*ebitenui.Node) *ebitenui.Node {
+	offsetKey := id + "-offset"
+	offsetY := 0.0
+	if runtime != nil {
+		offsetY = runtime.NumberValueOrDefault(offsetKey, 0)
 	}
-	return dice[:limit], len(dice) - limit
-}
 
-func limitStrings(values []string, limit int) ([]string, int) {
-	if len(values) <= limit {
-		return values, 0
+	handlers := ebitenui.EventHandlers{}
+	if runtime != nil {
+		handlers.OnScroll = func(ctx ebitenui.EventContext) {
+			if ctx.Runtime == nil {
+				return
+			}
+			maxOffset := maxFloat(0, ctx.Layout.ContentHeight-ctx.Layout.Frame.Height)
+			nextOffset := clampFloat(offsetY-(ctx.ScrollY*defaultScrollStep), 0, maxOffset)
+			if nextOffset == offsetY {
+				return
+			}
+			ctx.Runtime.SetNumberValue(offsetKey, nextOffset)
+		}
 	}
-	return values[len(values)-limit:], len(values) - limit
+
+	return ebitenui.ScrollView(ebitenui.Props{
+		ID:        id,
+		Focusable: true,
+		Handlers:  handlers,
+		Scroll: ebitenui.ScrollState{
+			OffsetY: offsetY,
+		},
+		Style: ebitenui.Style{
+			Width:     ebitenui.Fill(),
+			Height:    ebitenui.Fill(),
+			Direction: ebitenui.Column,
+		},
+	}, children...)
 }
 
 func fallback(value string, fallbackValue string) string {
@@ -853,6 +880,16 @@ func maxFloat(a, b float64) float64 {
 		return a
 	}
 	return b
+}
+
+func clampFloat(value, minimum, maximum float64) float64 {
+	if value < minimum {
+		return minimum
+	}
+	if value > maximum {
+		return maximum
+	}
+	return value
 }
 
 func minInt(a, b int) int {
